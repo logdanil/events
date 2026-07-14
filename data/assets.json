@@ -1,0 +1,919 @@
+[
+  {
+    "code": "SPYF",
+    "name": "SPDR S&P 500 ETF Trust (SPY)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "SPY"
+    ],
+    "monitor_fields": [
+      "Benchmark",
+      "Inception Date",
+      "Options Available",
+      "Gross Expense Ratio",
+      "Net Expense Ratio",
+      "Base Currency",
+      "Exchange",
+      "Listing Date",
+      "Trading Currency",
+      "Ticker",
+      "CUSIP",
+      "ISIN",
+      "Shares Outstanding / Shares Outstanding, K (сплит-чувствительное)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.ssga.com/us/en/individual/etfs/funds/spdr-sp-500-etf-trust-spy",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.barchart.com/etfs-funds/quotes/SPY/overview",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "NASD",
+    "name": "Invesco QQQ Trust, Series 1 (QQQ)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "QQQ"
+    ],
+    "monitor_fields": [
+      "Fund Name",
+      "Fund Ticker",
+      "CUSIP",
+      "Intraday NAV",
+      "30 Day SEC Yield",
+      "30 Day SEC Unsubsidized Yield",
+      "Inception Date",
+      "Total Expense Ratio",
+      "Primary Exchange",
+      "Security Type",
+      "Market Cap",
+      "Shares Outstanding / Shares Outstanding, K (сплит-чувствительное)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.invesco.com/us/financial-products/etfs/product-detail?productId=QQQ",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.nasdaq.com/market-activity/etf/qqq",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.barchart.com/etfs-funds/quotes/QQQ/overview",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "HANG",
+    "name": "Tracker Fund of Hong Kong (TraHK, 2800 HK)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "TraHK, 2800 HK"
+    ],
+    "monitor_fields": [
+      "Stock code",
+      "Trading lot size",
+      "Underlying index",
+      "Base currency",
+      "Ongoing charges over a year",
+      "Dividend policy",
+      "Financial year end",
+      "ETF structure / Type of fund",
+      "Shares Outstanding / Number of Units Outstanding (сплит-чувствительное)",
+      "Fund Size",
+      "Listing Date"
+    ],
+    "sources": [
+      {
+        "url": "https://www.trahk.com.hk/en-hk/trahk-fund/fund-information/",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.hangsenginvestment.com/en-hk/individual-investor/our-products/etf-listed-details/?FundClass=NA&FundUnit=NA&TrustNo=H02800",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "STOX",
+    "name": "iShares Core EURO STOXX 50 UCITS ETF",
+    "instrument_type": "ETF",
+    "aliases": [],
+    "monitor_fields": [
+      "Fund Launch Date",
+      "Asset Class",
+      "SFDR Classification",
+      "Total Expense Ratio",
+      "Distribution Frequency",
+      "Domicile",
+      "UCITS",
+      "Fund Manager",
+      "Custodian",
+      "Bloomberg Ticker",
+      "ISIN",
+      "Base Currency",
+      "Listing Currency / Trading currency",
+      "Symbol",
+      "Instrument type",
+      "Issuer",
+      "Market",
+      "Product type",
+      "Shares in issue / Shares Outstanding (сплит-чувствительное)"
+    ],
+    "sources": [],
+    "enabled": true
+  },
+  {
+    "code": "DAX",
+    "name": "iShares Core DAX UCITS ETF (DE)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "DE"
+    ],
+    "monitor_fields": [
+      "Fund Launch Date",
+      "Asset Class",
+      "Total Expense Ratio",
+      "Distribution Frequency",
+      "Domicile",
+      "UCITS",
+      "Fund Manager",
+      "Custodian",
+      "Bloomberg Ticker",
+      "ISIN",
+      "Base Currency",
+      "Symbol",
+      "Instrument type",
+      "Trading currency",
+      "Fund currency",
+      "Market",
+      "Product type",
+      "Shares in issue / Shares Outstanding (сплит-чувствительное)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.ishares.com/uk/individual/en/products/251464/ishares-core-dax-ucits-etf-de-fund",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.ishares.com/uk/individual/en/products/251464/ishares-core-dax-ucits-etf-de-fund?switchLocale=y&siteEntryPassthrough=true",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "NIKK",
+    "name": "iShares Core Nikkei 225 ETF",
+    "instrument_type": "ETF",
+    "aliases": [],
+    "monitor_fields": [
+      "Fund Launch Date",
+      "Benchmark Index",
+      "Base Currency",
+      "Fund Type",
+      "Total Expense Ratio",
+      "Domicile",
+      "Bloomberg Ticker",
+      "ISIN",
+      "Exchange / Listing market",
+      "Shares Outstanding / Shares in issue (сплит-чувствительное)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.blackrock.com/jp/individual/products/251737/ishares-core-nikkei-225-etf",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.blackrock.com/uk/individual/products/251737/ishares-core-nikkei-225-etf",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "R2000",
+    "name": "iShares Russell 2000 ETF (IWM)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "IWM"
+    ],
+    "monitor_fields": [
+      "Asset Class",
+      "Benchmark",
+      "Fund Launch Date",
+      "Distribution Frequency",
+      "CUSIP",
+      "Shares Outstanding (сплит-чувствительное)",
+      "Exchange",
+      "Net Assets of Fund",
+      "Net Expense Ratio",
+      "Gross Expense Ratio"
+    ],
+    "sources": [
+      {
+        "url": "https://www.ishares.com/us/products/239710/ishares-russell-2000-etf",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.barchart.com/etfs-funds/quotes/IWM/overview",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "DJ30",
+    "name": "SPDR Dow Jones Industrial Average ETF Trust (DIA)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "DIA"
+    ],
+    "monitor_fields": [
+      "Benchmark",
+      "Inception Date",
+      "Options Available",
+      "Gross Expense Ratio",
+      "Net Expense Ratio",
+      "Base Currency",
+      "Exchange",
+      "Listing Date",
+      "Trading Currency",
+      "Ticker",
+      "CUSIP",
+      "ISIN",
+      "Shares Outstanding / Shares Outstanding, K (сплит-чувствительное)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.ssga.com/us/en/individual/etfs/funds/spdr-dow-jones-industrial-average-etf-trust-dia",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.barchart.com/etfs-funds/quotes/DIA/overview",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "ALIBABA",
+    "name": "Alibaba Group Holding Ltd – ADR (BABA)",
+    "instrument_type": "ADR",
+    "aliases": [
+      "BABA"
+    ],
+    "monitor_fields": [
+      "Primary Exchange",
+      "Security Type",
+      "Sector",
+      "Industry",
+      "Market Cap",
+      "Outstanding Shares / Shares Outstanding (сплит-чувствительное)",
+      "Ratio (ORD:DR), 8:1 (ADR-ratio)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.nasdaq.com/market-activity/stocks/baba",
+        "kind": "official"
+      },
+      {
+        "url": "https://stockcircle.com/stocks/baba",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.adr.db.com/drwebrebrand/dr-universe/dr_details.html?identifier=10387",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "BAIDU",
+    "name": "Baidu Inc – ADR (BIDU)",
+    "instrument_type": "ADR",
+    "aliases": [
+      "BIDU"
+    ],
+    "monitor_fields": [
+      "Primary Exchange",
+      "Security Type",
+      "Sector",
+      "Industry",
+      "Market Cap",
+      "Outstanding Shares / Shares Outstanding (сплит-чувствительное)",
+      "Ratio (ORD:DRS), 8 :1 (ADR-ratio)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.nasdaq.com/market-activity/stocks/bidu",
+        "kind": "official"
+      },
+      {
+        "url": "https://citiadr.factsetdigitalsolutions.com/stocks/profile.idms?cusip=056752108",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "EM",
+    "name": "iShares MSCI Emerging Markets ETF / UCITS-класс",
+    "instrument_type": "ETF",
+    "aliases": [],
+    "monitor_fields": [
+      "Asset Class",
+      "Benchmark",
+      "Fund Launch Date",
+      "Distribution Frequency",
+      "Domicile",
+      "UCITS (если применимо)",
+      "Total Expense Ratio",
+      "Ticker",
+      "ISIN",
+      "Base Currency",
+      "Exchange",
+      "Shares Outstanding / Shares in issue (сплит-чувствительное)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.ishares.com/us/products/239637/ishares-msci-emerging-markets-etf",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.ishares.com/uk/individual/en/products/251751/ishares-msci-emerging-markets-ucits-etf",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.barchart.com/etfs-funds/quotes/EEM/overview",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "INDIA",
+    "name": "iShares MSCI India UCITS ETF (IE00BZCQB185)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "IE00BZCQB185"
+    ],
+    "monitor_fields": [
+      "Fund Launch Date",
+      "Asset Class",
+      "Total Expense Ratio",
+      "Distribution Frequency",
+      "Domicile",
+      "SFDR Classification",
+      "UCITS",
+      "Bloomberg Ticker",
+      "ISIN",
+      "Base Currency",
+      "Listing Currency",
+      "Shares in issue (сплит-чувствительное)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.ishares.com/uk/individual/en/products/297617/ishares-msci-india-ucits-etf-usd-acc-fund",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "SOXQ",
+    "name": "Invesco PHLX Semiconductor ETF (SOXQ)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "SOXQ"
+    ],
+    "monitor_fields": [
+      "Fund Name",
+      "Fund Ticker",
+      "CUSIP",
+      "Fund Inception Date",
+      "Exchange",
+      "Expense Ratio",
+      "Benchmark Index / Underlying Index",
+      "Index Ticker",
+      "Number of Holdings",
+      "Shares Outstanding / Shares Outstanding, K (сплит-чувствительное)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.invesco.com/us/financial-products/etfs/product-detail?productId=SOXQ",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.barchart.com/etfs-funds/quotes/SOXQ/overview",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.barchart.com/etfs-funds/quotes/SOXQ/profile",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "TENCENT",
+    "name": "Tencent Holdings Ltd (700 HK)",
+    "instrument_type": "SHARE",
+    "aliases": [
+      "700 HK"
+    ],
+    "monitor_fields": [
+      "Stock Code",
+      "Stock Name",
+      "Board Lot",
+      "Nominal Value / Par Value",
+      "Listing Date",
+      "Trading Currency",
+      "Market",
+      "Board",
+      "Issued Shares (excluding treasury shares) (сплит-чувствительное)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.hkex.com.hk/Market-Data/Securities-Prices/Equities/Equities-Quote?sc_lang=en&sym=700",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.hkexnews.hk",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "XIA",
+    "name": "Xiaomi Corporation – W (1810 HK)",
+    "instrument_type": "SHARE",
+    "aliases": [
+      "1810 HK"
+    ],
+    "monitor_fields": [
+      "Stock Code",
+      "Stock Name",
+      "Board Lot",
+      "Nominal Value / Par Value",
+      "Listing Date",
+      "Trading Currency",
+      "Market",
+      "Board",
+      "Issued Shares (excluding treasury shares) (сплит-чувствительное)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.hkex.com.hk/Market-Data/Securities-Prices/Equities/Equities-Quote?sc_lang=en&sym=1810",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.hkexnews.hk",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "TLT",
+    "name": "iShares 20+ Year Treasury Bond ETF (TLT)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "TLT"
+    ],
+    "monitor_fields": [
+      "Asset Class (Fixed Income)",
+      "Benchmark",
+      "Fund Launch Date",
+      "Distribution Frequency",
+      "CUSIP",
+      "Shares Outstanding (сплит-чувствительное)",
+      "Exchange",
+      "Net Assets of Fund",
+      "Net Expense Ratio",
+      "Gross Expense Ratio",
+      "Base Currency"
+    ],
+    "sources": [
+      {
+        "url": "https://www.ishares.com/us/products/239454/ishares-20-year-treasury-bond-etf",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.barchart.com/etfs-funds/quotes/TLT/overview",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "BRAZIL",
+    "name": "iShares MSCI Brazil ETF (EWZ)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "EWZ"
+    ],
+    "monitor_fields": [
+      "Asset Class",
+      "Benchmark",
+      "Fund Launch Date",
+      "Distribution Frequency",
+      "Domicile",
+      "Total Expense Ratio",
+      "Ticker",
+      "ISIN",
+      "Base Currency",
+      "Exchange",
+      "Shares Outstanding / Shares Outstanding, K (сплит-чувствительное)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.ishares.com/us/products/239612/ishares-msci-brazil-etf",
+        "kind": "official"
+      },
+      {
+        "url": "https://cl.ishares.com/product_info/fund/holdings/EWZ.htm",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.barchart.com/etfs-funds/quotes/EWZ/overview",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "CHINA",
+    "name": "iShares MSCI China ETF (MCHI)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "MCHI"
+    ],
+    "monitor_fields": [
+      "Asset Class",
+      "Benchmark",
+      "Fund Launch Date",
+      "Distribution Frequency",
+      "CUSIP",
+      "Shares Outstanding / Shares Outstanding, K (сплит-чувствительное)",
+      "Exchange",
+      "Net Assets of Fund",
+      "Net Expense Ratio",
+      "Gross Expense Ratio",
+      "Base Currency"
+    ],
+    "sources": [
+      {
+        "url": "https://www.ishares.com/us/products/239715/ishares-msci-china-etf",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.barchart.com/etfs-funds/quotes/MCHI/overview",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "SAUDI",
+    "name": "iShares MSCI Saudi Arabia ETF (KSA)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "KSA"
+    ],
+    "monitor_fields": [
+      "Asset Class",
+      "Benchmark",
+      "Fund Launch Date",
+      "Distribution Frequency",
+      "CUSIP",
+      "Shares Outstanding / Shares Outstanding, K (сплит-чувствительное)",
+      "Exchange",
+      "Net Assets of Fund",
+      "Net Expense Ratio",
+      "Gross Expense Ratio"
+    ],
+    "sources": [
+      {
+        "url": "https://www.ishares.com/us/products/275326/ishares-msci-saudi-arabia-etf",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.barchart.com/etfs-funds/quotes/KSA/overview",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.ishares.com/us/products/271542/",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "AFRICA",
+    "name": "iShares MSCI South Africa ETF (EZA)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "EZA"
+    ],
+    "monitor_fields": [
+      "Asset Class",
+      "Benchmark",
+      "Fund Launch Date",
+      "Distribution Frequency",
+      "CUSIP",
+      "Shares Outstanding / Shares Outstanding, K (сплит-чувствительное)",
+      "Exchange",
+      "Net Assets of Fund",
+      "Net Expense Ratio",
+      "Gross Expense Ratio"
+    ],
+    "sources": [
+      {
+        "url": "https://www.ishares.com/us/products/239612/ishares-msci-south-africa-etf",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.barchart.com/etfs-funds/quotes/EZA/overview",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.ishares.com/us/products/239680/",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "ARGT",
+    "name": "Global X MSCI Argentina ETF (ARGT)",
+    "instrument_type": "ETF",
+    "aliases": [
+      "ARGT"
+    ],
+    "monitor_fields": [
+      "Fund inception date",
+      "Ticker",
+      "CUSIP",
+      "ISIN",
+      "Primary Exchange / Listing Exchange",
+      "Expense ratio",
+      "Index provider",
+      "Underlying index",
+      "Index ticker",
+      "30-day SEC yield",
+      "Net assets",
+      "Shares Outstanding / Shares Outstanding, K (сплит-чувствительное)"
+    ],
+    "sources": [
+      {
+        "url": "https://www.globalxetfs.com/funds/argt/",
+        "kind": "official"
+      },
+      {
+        "url": "https://assets.globalxetfs.com/funds/documents/argt/Fact-Sheet_ARGT.pdf",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.barchart.com/etfs-funds/quotes/ARGT/overview",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "ALUM",
+    "name": "LME Aluminium",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.lme.com/Metals/Non-ferrous/LME-Aluminium/Contract-specifications?sc_camp=4F52AC6F65094CF9B8E4DD64DB07ADBE",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "COPPER",
+    "name": "LME Copper",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.lme.com/en/Metals/Non-ferrous/LME-Copper/Contract-specifications",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "ZINC",
+    "name": "LME Zinc",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.lme.com/Metals/Non-ferrous/LME-Zinc/Contract-specifications",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "NICKEL",
+    "name": "LME Nickel",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.lme.com/Metals/Non-ferrous/LME-Nickel/Contract-specifications",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "BR, BRM",
+    "name": "ICE Brent Index, ICE Brent futures",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.ice.com/products/219",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "NG, NGM",
+    "name": "Henry Hub natural gas futures",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.cmegroup.com/markets/energy/natural-gas/natural-gas.contractSpecs.html",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "SUGR",
+    "name": "Sugar No.11 Futures",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.ice.com/products/23/Sugar-No-11-Futures",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "GOLD",
+    "name": "LBMA gold",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.lbma.org.uk/prices-and-data/precious-metal-prices#/prices-explained",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.cmegroup.com/markets/metals/precious/gold.contractSpecs.html",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "SILV",
+    "name": "LBMA silver",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.lbma.org.uk/prices-and-data/precious-metal-prices#/prices-explained",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.cmegroup.com/markets/metals/precious/silver.contractSpecs.html",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "PLT",
+    "name": "LBMA platinum",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.lbma.org.uk/prices-and-data/precious-metal-prices#/prices-explained",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.cmegroup.com/markets/metals/precious/platinum.contractSpecs.html",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "PLD",
+    "name": "LBMA palladium",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.lbma.org.uk/prices-and-data/precious-metal-prices#/prices-explained",
+        "kind": "official"
+      },
+      {
+        "url": "https://www.cmegroup.com/markets/metals/precious/palladium.contractSpecs.html",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "COCOA",
+    "name": "Cocoa Futures",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.ice.com/products/7/Cocoa-Futures",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "COFFEE",
+    "name": "US Coffee C futures",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.ice.com/products/15/Coffee-C-Futures",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "TTF",
+    "name": "Dutch TTF Natural Gas Futures",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.ice.com/products/27996665/Dutch-TTF-Natural-Gas-Futures",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  },
+  {
+    "code": "ORANGE",
+    "name": "FCOJ-A Futures",
+    "instrument_type": "ASSET",
+    "aliases": [],
+    "monitor_fields": [],
+    "sources": [
+      {
+        "url": "https://www.ice.com/products/30",
+        "kind": "official"
+      }
+    ],
+    "enabled": true
+  }
+]

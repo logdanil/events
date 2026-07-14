@@ -1,0 +1,361 @@
+# Базовые активы и источники мониторинга
+
+Автоматически сформировано из Excel.
+
+## SPYF
+- **Базовый актив:** SPDR S&P 500 ETF Trust (SPY)
+- **ISIN:** `US78462F1030`
+- **Биржа первичного листинга:** NYSE
+- **Источники мониторинга:**
+  - https://www.ssga.com/us/en/intermediary/etfs/spdr-sp-500-etf-trust-spy
+
+## NASD
+- **Базовый актив:** Invesco QQQ ETF Trust Unit Series 1 (QQQ)
+- **ISIN:** `US46090E1038`
+- **Биржа первичного листинга:** Nasdaq
+- **Источники мониторинга:**
+  - https://www.nasdaq.com/market-activity/etf/qqq/press-releases
+  - https://www.nasdaq.com/market-activity/etf/qqq/press-releases
+
+## HANG
+- **Базовый актив:** Tracker Fund of Hong Kong ETF
+- **ISIN:** `HK2800008867`
+- **Биржа первичного листинга:** HKEX
+- **Источники мониторинга:**
+  - https://www.trahk.com.hk/en-hk/trahk-fund/resources/#TF_notice-to-unitholders
+  - https://www1.hkexnews.hk/search/titlesearch.xhtml?lang=en
+
+## STOX
+- **Базовый актив:** iShares Core EURO STOXX 50 UCITS ETF EUR (Dist)
+- **ISIN:** `IE0008471009`
+- **Биржа первичного листинга:** Xetra
+- **Источники мониторинга:**
+  - https://www.ishares.com/uk/individual/en/education/library?productIdentifier=IE0008471009%7EBRS8PR212%7E251781
+  - https://live.euronext.com/en/product/etfs/IE0008471009-XAMS#notices
+
+## DAX
+- **Базовый актив:** iShares Core DAX UCITS ETF (DE)
+- **ISIN:** `DE0005933931`
+- **Биржа первичного листинга:** Euronext
+- **Источники мониторинга:**
+  - https://www.ishares.com/uk/individual/en/education/library?productIdentifier=DE0005933931%7EBRWJRG850%7E251464
+
+## NIKK
+- **Базовый актив:** iShares Core Nikkei 225 ETF
+- **ISIN:** `JP3027710007`
+- **Биржа первичного листинга:** TSE
+- **Источники мониторинга:**
+  - https://www.blackrock.com/jp/individual-en/en/document-centre?productIdentifier=JP3027710007%7ES63974497%7E251897
+  - https://www2.jpx.co.jp/tseHpFront/JJK020030Action.do
+
+## R2000
+- **Базовый актив:** iShares Russell 2000 ETF
+- **ISIN:** `US4642876555`
+- **Биржа первичного листинга:** NYSE
+- **Источники мониторинга:**
+  - https://www.ishares.com/us/library?productIdentifier=US4642876555%7E464287655%7E239710
+
+## DJ30
+- **Базовый актив:** SPDR Dow Jones Industrial Average ETF Trust
+- **ISIN:** `US78467X1090`
+- **Биржа первичного листинга:** NYSE
+- **Источники мониторинга:**
+  - https://www.ssga.com/us/en/intermediary/etfs/spdr-dow-jones-industrial-average-etf-trust-dia
+
+## ALIBABA
+- **Базовый актив:** Американские депозитарные расписки на акции Alibaba Group Holding Limited
+- **ISIN:** `US01609W1027`
+- **Биржа первичного листинга:** NYSE
+- **Источники мониторинга:**
+  - https://www.nasdaq.com/market-activity/stocks/baba/press-releases
+
+## BAIDU
+- **Базовый актив:** Американские депозитарные расписки на акции Baidu.com, Inc.
+- **ISIN:** `US0567521085`
+- **Биржа первичного листинга:** Nasdaq
+- **Источники мониторинга:**
+  - https://www.nasdaq.com/market-activity/stocks/bidu/press-releases
+
+## EM
+- **Базовый актив:** iShares MSCI Emerging Markets ETF
+- **ISIN:** `US4642872349`
+- **Биржа первичного листинга:** NYSE
+- **Источники мониторинга:**
+  - https://www.ishares.com/us/library?productIdentifier=US4642872349%7E464287234%7E239637
+
+## INDIA
+- **Базовый актив:** iShares MSCI India UCITS ETF
+- **ISIN:** `IE00BZCQB185`
+- **Биржа первичного листинга:** LSE
+- **Источники мониторинга:**
+  - https://www.ishares.com/uk/individual/en/education/library?productIdentifier=IE00BZCQB185%7EBRTGYM149%7E297617
+
+## SOXQ
+- **Базовый актив:** Invesco PHLX Semiconductor ETF
+- **ISIN:** `US46138G6153`
+- **Биржа первичного листинга:** Nasdaq
+- **Источники мониторинга:**
+  - https://www.invesco.com/us/newsroom?FilterList=FCLASS_SUBJECT_MATTER%26NEWSROOM%2FPRESS+RELEASES&audienceType=Advisor
+  - https://www.nasdaq.com/market-activity/etf/soxq/press-releases
+
+## TENCENT
+- **Базовый актив:** Акции Tencent Holdings Limited
+- **ISIN:** `KYG875721634`
+- **Биржа первичного листинга:** HKEX
+- **Источники мониторинга:**
+  - https://www1.hkexnews.hk/search/titlesearch.xhtml?lang=en
+
+## XIA
+- **Базовый актив:** Акции Xiaomi Corporation
+- **ISIN:** `KYG9830T1067`
+- **Биржа первичного листинга:** HKEX
+- **Источники мониторинга:**
+  - https://www1.hkexnews.hk/search/titlesearch.xhtml?lang=en
+
+## TLT
+- **Базовый актив:** iShares 20+ Year Treasury Bond ETF
+- **ISIN:** `US4642874329`
+- **Биржа первичного листинга:** Nasdaq
+- **Источники мониторинга:**
+  - https://www.ishares.com/us/library?productIdentifier=US4642874329%7E464287432%7E239454
+  - https://www.nasdaq.com/market-activity/etf/tlt/press-releases
+
+## BRAZIL
+- **Базовый актив:** iShares MSCI Brazil ETF
+- **ISIN:** `US4642864007`
+- **Биржа первичного листинга:** NYSE
+- **Источники мониторинга:**
+  - https://www.ishares.com/us/library?productIdentifier=US4642864007%7E464286400%7E239612
+
+## CHINA
+- **Базовый актив:** iShares MSCI China ETF
+- **ISIN:** `US46429B6719`
+- **Биржа первичного листинга:** Nasdaq
+- **Источники мониторинга:**
+  - https://www.ishares.com/us/library?productIdentifier=US46429B6719%7E46429B671%7E239619
+
+## SAUDI
+- **Базовый актив:** iShares MSCI Saudi Arabia ETF
+- **ISIN:** `US46434V4234`
+- **Биржа первичного листинга:** Nasdaq
+- **Источники мониторинга:**
+  - https://www.ishares.com/us/library?productIdentifier=US46434V4234%7EBRSQNFTT0%7E271542
+
+## AFRICA
+- **Базовый актив:** iShares MSCI South Africa ETF
+- **ISIN:** `US4642867802`
+- **Биржа первичного листинга:** Nasdaq
+- **Источники мониторинга:**
+  - https://www.ishares.com/us/library?productIdentifier=US4642867802%7E464286780%7E239680
+
+## ARGT
+- **Базовый актив:** Global X MSCI Argentina ETF
+- **ISIN:** `US37950E2596`
+- **Биржа первичного листинга:** Nasdaq
+- **Источники мониторинга:**
+  - https://www.globalxetfs.com/funds/argt#documents
+
+## IBIT
+- **Базовый актив:** iShares Bitcoin Trust ETF
+- **ISIN:** `US46438F1012`
+- **Биржа первичного листинга:** Nasdaq
+- **Источники мониторинга:**
+  - https://www.ishares.com/us/products/333011/ishares-bitcoin-trust-etf
+  - https://www.ishares.com/us/library?productIdentifier=US46438F1012~BRYLQ9EC8~333011
+
+## ETHA
+- **Базовый актив:** iShares Ethereum Trust ETF
+- **ISIN:** `US46438R1059`
+- **Биржа первичного листинга:** Nasdaq
+- **Источники мониторинга:**
+  - https://www.ishares.com/us/products/337614/ishares-ethereum-trust-etf
+  - https://www.ishares.com/us/library?productIdentifier=US46438R1059~BYD2RTCL5~337614
+
+## TSM
+- **Базовый актив:** Американские депозитарные расписки на акции Taiwan Semiconductor Manufacturing Company, Limited
+- **ISIN:** `US8740391003`
+- **Биржа первичного листинга:** NYSE
+- **Источники мониторинга:**
+  - https://pr.tsmc.com/english/latest-news
+  - https://www.nasdaq.com/market-activity/stocks/tsm/press-releases
+  - https://investor.tsmc.com/english/credit-rating
+
+## SAP
+- **Базовый актив:** Американские депозитарные расписки на акции SAP SE
+- **ISIN:** `US8030542042`
+- **Биржа первичного листинга:** NYSE
+- **Источники мониторинга:**
+  - https://news.sap.com/press-room/
+  - https://www.nasdaq.com/market-activity/stocks/sap/press-releases
+
+## SONY
+- **Базовый актив:** Американские депозитарные расписки на акции Sony Group Corporation
+- **ISIN:** `US8356993076`
+- **Биржа первичного листинга:** NYSE
+- **Источники мониторинга:**
+  - https://www.sony.com/en/SonyInfo/News/Press/
+  - https://www.nasdaq.com/market-activity/stocks/sony/press-releases
+
+## PDD
+- **Базовый актив:** Американские депозитарные расписки на акции PDD Holdings Inc
+- **ISIN:** `US7223041028`
+- **Биржа первичного листинга:** Nasdaq
+- **Источники мониторинга:**
+  - https://investor.pddholdings.com/news-releases
+  - https://www.nasdaq.com/market-activity/stocks/pdd/press-releases
+
+## JDCOM
+- **Базовый актив:** Американские депозитарные расписки на акции JD.com
+- **ISIN:** `US47215P1066`
+- **Биржа первичного листинга:** Nasdaq
+- **Источники мониторинга:**
+  - https://www.nasdaq.com/market-activity/stocks/jd/press-releases
+  - https://ir.jd.com/news-releases
+
+## NOVARTIS
+- **Базовый актив:** Американские депозитарные расписки на акции Novartis AG
+- **ISIN:** `US66987V1098`
+- **Биржа первичного листинга:** NYSE
+- **Источники мониторинга:**
+  - https://www.novartis.com/news/newsroom
+  - https://www.nasdaq.com/market-activity/stocks/nvs/press-releases
+
+## TOYOTA
+- **Базовый актив:** Американские депозитарные расписки на акции Toyota Motor Corporation
+- **ISIN:** `US8923313071`
+- **Биржа первичного листинга:** NYSE
+- **Источники мониторинга:**
+  - https://global.toyota/en/newsroom/
+  - https://www.nasdaq.com/market-activity/stocks/tm/press-releases
+
+## ASML
+- **Базовый актив:** Депозитарные расписки на акции ASML Holding
+- **ISIN:** `USN070592100`
+- **Биржа первичного листинга:** NYSE
+- **Источники мониторинга:**
+  - https://www.asml.com/en/news/press-releases
+  - https://www.nasdaq.com/market-activity/stocks/asml/press-releases
+
+## KOREA
+- **Базовый актив:** iShares MSCI South Korea ETF
+- **ISIN:** `US4642867729`
+- **Биржа первичного листинга:** Nasdaq
+- **Источники мониторинга:**
+  - https://www.ishares.com/us/library?productIdentifier=US4642867729~464286772~239681
+  - https://www.nasdaq.com/market-activity/etf/ewy/press-releases
+
+## SAMSUNG
+- **Базовый актив:** Акции Samsung Electronics
+- **ISIN:** `KR7005930003`
+- **Биржа первичного листинга:** KRX
+- **Источники мониторинга:**
+  - https://news.samsung.com/global/category/press-resources/press-release
+  - https://www.londonstockexchange.com/stock/SMSN/samsung-electronics-co-ltd-att/company-page
+
+## HYNIX
+- **Базовый актив:** Акции SK Hynix
+- **ISIN:** `KR7000660001`
+- **Биржа первичного листинга:** KRX
+- **Источники мониторинга:**
+  - https://news.skhynix.com/press-center/press-release/
+  - https://www.skhynix.com/ir/UI-FR-IR12_T1_view/?seq=6781
+
+## ALUM
+- **Базовый актив:** LME Aluminium
+- **Биржа первичного листинга:** London Metal Exchange
+- **Источники мониторинга:**
+  - https://www.lme.com/Metals/Non-ferrous/LME-Aluminium/Contract-specifications?sc_camp=4F52AC6F65094CF9B8E4DD64DB07ADBE
+
+## COPPER
+- **Базовый актив:** LME Copper
+- **Биржа первичного листинга:** London Metal Exchange
+- **Источники мониторинга:**
+  - https://www.lme.com/en/Metals/Non-ferrous/LME-Copper/Contract-specifications
+
+## ZINC
+- **Базовый актив:** LME Zinc
+- **Биржа первичного листинга:** London Metal Exchange
+- **Источники мониторинга:**
+  - https://www.lme.com/Metals/Non-ferrous/LME-Zinc/Contract-specifications
+
+## NICKEL
+- **Базовый актив:** LME Nickel
+- **Биржа первичного листинга:** London Metal Exchange
+- **Источники мониторинга:**
+  - https://www.lme.com/Metals/Non-ferrous/LME-Nickel/Contract-specifications
+
+## BR, BRM
+- **Базовый актив:** ICE Brent Index, ICE Brent futures
+- **Биржа первичного листинга:** ICE Futures Europe, ICE Endex
+- **Источники мониторинга:**
+  - https://www.ice.com/products/219
+
+## WTI
+- **Базовый актив:** CME Crude Oil futures
+- **Биржа первичного листинга:** CME Group
+- **Источники мониторинга:**
+  - https://www.cmegroup.com/markets/energy/crude-oil/light-sweet-crude.html
+
+## NG, NGM
+- **Базовый актив:** Henry Hub natural gas futures
+- **Биржа первичного листинга:** CME Group
+- **Источники мониторинга:**
+  - https://www.cmegroup.com/markets/energy/natural-gas/natural-gas.contractSpecs.html
+
+## SUGR
+- **Базовый актив:** Sugar No.11 Futures
+- **Биржа первичного листинга:** ICE Futures US
+- **Источники мониторинга:**
+  - https://www.ice.com/products/23/Sugar-No-11-Futures
+
+## GOLD
+- **Базовый актив:** LBMA precious metal prices (international prices for gold, silver, platinum and palladium)
+- **Биржа первичного листинга:** London Bullion Market Assosiation
+- **Источники мониторинга:**
+  - https://www.lbma.org.uk/prices-and-data/precious-metal-prices#/prices-explained
+  - https://www.cmegroup.com/markets/metals/precious/gold.contractSpecs.html
+
+## SILV
+- **Базовый актив:** LBMA precious metal prices (international prices for gold, silver, platinum and palladium)
+- **Биржа первичного листинга:** London Bullion Market Assosiation
+- **Источники мониторинга:**
+  - https://www.lbma.org.uk/prices-and-data/precious-metal-prices#/prices-explained
+  - https://www.cmegroup.com/markets/metals/precious/silver.contractSpecs.html
+
+## PLT
+- **Базовый актив:** LBMA precious metal prices (international prices for gold, silver, platinum and palladium)
+- **Биржа первичного листинга:** London Bullion Market Assosiation
+- **Источники мониторинга:**
+  - https://www.lbma.org.uk/prices-and-data/precious-metal-prices#/prices-explained
+  - https://www.cmegroup.com/markets/metals/precious/platinum.contractSpecs.html
+
+## PLD
+- **Базовый актив:** LBMA precious metal prices (international prices for gold, silver, platinum and palladium)
+- **Биржа первичного листинга:** London Bullion Market Assosiation
+- **Источники мониторинга:**
+  - https://www.lbma.org.uk/prices-and-data/precious-metal-prices#/prices-explained
+  - https://www.cmegroup.com/markets/metals/precious/palladium.contractSpecs.html
+
+## COCOA
+- **Базовый актив:** Cocoa Futures
+- **Биржа первичного листинга:** ICE Futures US
+- **Источники мониторинга:**
+  - https://www.ice.com/products/7/Cocoa-Futures
+
+## COFFEE
+- **Базовый актив:** US Coffee C futures
+- **Биржа первичного листинга:** ICE Futures US
+- **Источники мониторинга:**
+  - https://www.ice.com/products/15/Coffee-C-Futures
+
+## TTF
+- **Базовый актив:** Dutch TTF Natural Gas Futures
+- **Биржа первичного листинга:** ICE Futures Europe, ICE Endex
+- **Источники мониторинга:**
+  - https://www.ice.com/products/27996665/Dutch-TTF-Natural-Gas-Futures
+
+## ORANGE
+- **Базовый актив:** FCOJ-A Futures
+- **Биржа первичного листинга:** ICE Futures US
+- **Источники мониторинга:**
+  - https://www.ice.com/products/30

@@ -1,0 +1,450 @@
+"""Многоступенчатое сопоставление публикаций с базовыми активами (полностью локальное).
+
+Уровни надёжности:
+  A — точные идентификаторы (ISIN/CUSIP/CIK/LEI, структурированный SEC filer);
+  B — точные названия (полное имя, имя без юр. суффиксов, эмитент);
+  C — алиасы (целые слова/фразы; короткие тикеры — только с контекстом);
+  D — fuzzy (RapidFuzz; только как кандидат при наличии другого признака);
+  E — источник (персональная IR-страница актива — сильный сигнал,
+      глобальный SEC/Nasdaq-фид сам по себе — не сигнал).
+
+Результат — MatchResult со скором, уровнем уверенности и объяснением.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+import re
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+
+from rapidfuzz import fuzz
+
+from app import db
+from app.versions import MATCHER_VERSION  # noqa: F401  (реэкспорт для остальных модулей)
+
+log = logging.getLogger(__name__)
+
+# Признаки корпоративного события. Публикация без единого совпадения в LLM не отправляется.
+CORPORATE_KEYWORDS = [
+    "split", "reverse split", "dividend", "special dividend", "record date", "ex-date",
+    "ex date", "spin-off", "spinoff", "merger", "acquisition", "rights issue",
+    "adr", "isin", "cusip", "symbol change", "ticker change", "bankruptcy", "liquidation",
+    "rebalance", "index change", "listing", "delisting", "contract specification",
+    "trading suspension", "trading halt", "shareholder meeting", "sec filing",
+    "8-k", "6-k", "13d", "13g", "tender offer", "buyback", "issuer bid",
+    "redenomination", "conversion", "name change", "corporate action",
+    "capital return", "capital distribution", "distribution", "consolidation", "share issuance",
+    "дроблени", "делистинг", "слияни", "поглощен", "банкрот", "выкуп",
+    "приостановка торгов", "спецификаци", "дивиденд",
+]
+
+# Контекст, легализующий короткий/неоднозначный тикер (SPY, EM, GOLD, DAX…).
+TICKER_CONTEXT_WORDS = {"etf", "fund", "trust", "shares", "ticker", "symbol", "nyse",
+                        "nasdaq", "etn", "adr", "dividend", "distribution", "listing", "index"}
+
+# Похоже на биржевой тикер: цифры/точка внутри ("0700.hk", "2330.tw", "2800 hk").
+_TICKERISH_RE = re.compile(r"^[a-z0-9][a-z0-9. \-]{1,11}$")
+
+# Заведомо неоднозначные тикеры: без контекста не сопоставляются вовсе.
+AMBIGUOUS_TICKERS = {"spy", "em", "br", "ng", "plt", "pld", "gold", "silv", "dax",
+                     "sugr", "ttf", "china", "india", "brazil", "cocoa", "coffee", "orange"}
+
+# Общие слова провайдеров/юр. форм: сами по себе дают не более WEIGHT_PROVIDER.
+GENERIC_WORDS = {"global", "market", "index", "fund", "trust", "group", "holdings",
+                 "capital", "financial", "international", "select", "core", "spdr",
+                 "ishares", "invesco", "vaneck", "xtrackers", "state street", "etf"}
+
+# Веса уровней.
+W_EXACT_ID = 1.00
+W_FULL_NAME = 0.90
+W_NORM_NAME = 0.85
+W_ISSUER = 0.85
+W_TICKER_CTX = 0.90
+W_TICKER_BARE = 0.35
+W_LONG_ALIAS = 0.70
+W_MID_ALIAS = 0.55
+W_OWNED_BONUS = 0.45
+W_FUZZY_HIGH = 0.45     # ≥ 92
+W_FUZZY_MID = 0.25      # 85–92
+W_PROVIDER = 0.20
+NEGATIVE_PENALTY = 0.30
+
+HIGH, MEDIUM, LOW = 0.80, 0.60, 0.40
+
+_WORD_RE = re.compile(r"\w+", re.UNICODE)
+
+
+# --- Хэши и базовые фильтры ---------------------------------------------------
+
+def url_hash(url: str) -> str:
+    normalized = (url or "").strip().lower().rstrip("/")
+    normalized = re.sub(r"^https?://(www\.)?", "", normalized)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def title_hash(title: str) -> str | None:
+    words = _WORD_RE.findall((title or "").lower())
+    if not words:
+        return None
+    return hashlib.sha256(" ".join(words).encode("utf-8")).hexdigest()
+
+
+def has_corporate_keywords(publication: dict) -> bool:
+    text = f"{publication.get('title', '')} {publication.get('text', '')}".lower()
+    return any(k in text for k in CORPORATE_KEYWORDS)
+
+
+def _norm(text: str) -> str:
+    text = (text or "").lower().replace("–", "-").replace("—", "-")
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _phrase_in(phrase: str, text: str) -> bool:
+    """Точная фраза по границам токенов (SPY не совпадает с частью слова)."""
+    return re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text) is not None
+
+
+# --- Профили активов -----------------------------------------------------------
+
+@dataclass
+class AssetProfile:
+    code: str
+    instrument_type: str
+    full_name: str
+    ids: dict[str, str] = field(default_factory=dict)   # isin/cusip/cik/lei → значение
+    names: list[str] = field(default_factory=list)      # (фраза, полная/нормализованная)
+    issuer: str | None = None
+    long_aliases: list[str] = field(default_factory=list)
+    mid_aliases: list[str] = field(default_factory=list)
+    tickers: list[str] = field(default_factory=list)
+    negatives: list[str] = field(default_factory=list)
+    rule_aliases: list[tuple[str, float]] = field(default_factory=list)
+
+
+_SUFFIX_RE = re.compile(
+    r"\s+(etf trust|ucits etf|etf|trust|ltd|inc|corp|corporation|adr|plc|fund|futures|index)\.?$")
+
+
+def _strip_suffixes(name: str) -> str:
+    prev = None
+    while prev != name:
+        prev = name
+        name = _SUFFIX_RE.sub("", name).strip(" ,–-")
+    return name
+
+
+def build_profiles(assets: list[dict], rules: list[dict] | None = None) -> list[AssetProfile]:
+    rules_by_asset: dict[str, list[dict]] = {}
+    for r in rules or []:
+        rules_by_asset.setdefault(r["asset_code"], []).append(r)
+    profiles = []
+    for a in assets:
+        p = AssetProfile(code=a["code"], instrument_type=a.get("instrument_type", ""),
+                         full_name=a["name"])
+        for key in ("isin", "cusip", "lei"):
+            if a.get(key):
+                p.ids[key] = str(a[key]).strip().upper()
+        if a.get("cik"):
+            p.ids["cik"] = str(int(str(a["cik"]).strip() or 0))
+        name = _norm(a["name"])
+        p.names.append(name)
+        no_paren = _norm(re.sub(r"\s*\([^)]*\)\s*$", "", a["name"]))
+        if len(no_paren) >= 8 and no_paren != name:
+            p.names.append(no_paren)
+        stripped = _strip_suffixes(no_paren)
+        if len(stripped) >= 8 and stripped not in p.names:
+            p.names.append(stripped)
+        if a.get("issuer_name"):
+            p.issuer = _norm(a["issuer_name"])
+        for t in (a.get("underlying_ticker"), a.get("adr_ticker"), a.get("local_ticker")):
+            if t and _norm(t) not in p.tickers:
+                p.tickers.append(_norm(t))
+        for alias in a.get("aliases", []):
+            alias_n = _norm(alias)
+            if not alias_n or alias_n in p.names or alias_n in p.tickers:
+                continue
+            if alias_n in GENERIC_WORDS:
+                continue
+            tickerish = len(alias_n) <= 12 and _TICKERISH_RE.fullmatch(alias_n) and (
+                any(ch.isdigit() for ch in alias_n) or "." in alias_n or len(alias_n) <= 4)
+            if tickerish:
+                p.tickers.append(alias_n)   # биржевые тикеры — по правилам тикеров
+            elif len(alias_n) >= 8:
+                p.long_aliases.append(alias_n)
+            elif len(alias_n) >= 5:
+                p.mid_aliases.append(alias_n)
+            else:
+                p.tickers.append(alias_n)
+        for r in rules_by_asset.get(a["code"], []):
+            if r["rule_type"] == "negative":
+                p.negatives.append(_norm(r["pattern"]))
+            elif r["rule_type"] == "alias":
+                p.rule_aliases.append((_norm(r["pattern"]), float(r["weight"] or W_LONG_ALIAS)))
+        profiles.append(p)
+    # Первое слово имени — самостоятельный длинный алиас, только если оно
+    # характерное (не общее слово) и уникально среди активов: «alibaba», «tencent».
+    first_words: dict[str, int] = {}
+    for p in profiles:
+        stripped = _strip_suffixes(p.names[-1] if p.names else "")
+        word = stripped.split()[0] if stripped else ""
+        if len(word) >= 5 and word not in GENERIC_WORDS:
+            first_words[word] = first_words.get(word, 0) + 1
+            p._first_word = word  # type: ignore[attr-defined]
+    for p in profiles:
+        word = getattr(p, "_first_word", "")
+        if word and first_words.get(word) == 1 and word not in p.long_aliases:
+            p.long_aliases.append(word)
+    return profiles
+
+
+# --- Результат сопоставления ---------------------------------------------------
+
+@dataclass
+class MatchResult:
+    asset_code: str
+    score: float
+    confidence: str                 # high | medium | low | none
+    matched_by: list[str]
+    matched_terms: list[str]
+    rejected_terms: list[str]
+    explanation: str
+
+    def as_dict(self) -> dict:
+        return {"contract_code": self.asset_code, "score": round(self.score, 2),
+                "confidence": self.confidence, "matched_by": self.matched_by,
+                "matched_terms": self.matched_terms, "rejected_terms": self.rejected_terms,
+                "explanation": self.explanation}
+
+
+def _confidence(score: float) -> str:
+    if score >= HIGH:
+        return "high"
+    if score >= MEDIUM:
+        return "medium"
+    if score >= LOW:
+        return "low"
+    return "none"
+
+
+def _source_owned(pub: dict, code: str) -> bool:
+    """Источник персональный: на него подписан этот актив и подписчиков мало.
+    Глобальные фиды (SEC/Nasdaq, без подписчиков) владения не дают.
+    Поисковые результаты (Tavily) — тоже: то, что мы искали по активу,
+    не значит, что найденное о нём; для SEARCH обязательно текстовое совпадение."""
+    if pub.get("source_type") == "SEARCH":
+        return False
+    subscribers = pub.get("subscribers") or []
+    return code in subscribers and 0 < len(subscribers) <= 2
+
+
+def _match_sec(pub: dict, profile: AssetProfile) -> MatchResult | None:
+    """Публикации SEC-фидов сопоставляются только по filer: CIK либо точное имя.
+    Никакого fuzzy и никакого владения источником."""
+    filer = _norm(pub.get("sec_filer") or "")
+    cik = str(pub.get("sec_cik") or "").lstrip("0")
+    if cik and profile.ids.get("cik") == cik:
+        return MatchResult(profile.code, W_EXACT_ID, "high", ["sec_cik_exact"],
+                           [cik], [], f"CIK {cik} совпал с {profile.code}")
+    if filer:
+        candidates = [*profile.names, profile.issuer or "", *profile.long_aliases]
+        stripped_filer = _strip_suffixes(filer)
+        for name in candidates:
+            if name and (filer == name or stripped_filer == _strip_suffixes(name)):
+                return MatchResult(profile.code, W_FULL_NAME, "high", ["sec_filer_exact_name"],
+                                   [pub.get("sec_filer", "")], [],
+                                   f"Имя filer «{pub.get('sec_filer')}» совпало с {profile.code}")
+    return None
+
+
+def match_one(pub: dict, profile: AssetProfile) -> MatchResult:
+    """Скоринг публикации против одного актива."""
+    if pub.get("sec_cik") or pub.get("sec_filer"):
+        result = _match_sec(pub, profile)
+        return result or MatchResult(profile.code, 0.0, "none", [], [], [],
+                                     "SEC-публикация: filer не относится к активу")
+
+    text = _norm(f"{pub.get('title', '')} {pub.get('text', '')}")
+    matched_by: list[str] = []
+    matched_terms: list[str] = []
+    rejected_terms: list[str] = []
+    signals: list[float] = []
+
+    for kind, value in profile.ids.items():
+        if value and _phrase_in(value.lower(), text):
+            signals.append(W_EXACT_ID)
+            matched_by.append(f"exact_{kind}")
+            matched_terms.append(value)
+    for i, name in enumerate(profile.names):
+        if _phrase_in(name, text):
+            signals.append(W_FULL_NAME if i == 0 else W_NORM_NAME)
+            matched_by.append("exact_full_name" if i == 0 else "exact_normalized_name")
+            matched_terms.append(name)
+            break
+    if profile.issuer and _phrase_in(profile.issuer, text):
+        signals.append(W_ISSUER)
+        matched_by.append("exact_issuer_name")
+        matched_terms.append(profile.issuer)
+    for alias in profile.long_aliases:
+        if _phrase_in(alias, text):
+            signals.append(W_LONG_ALIAS)
+            matched_by.append("long_alias")
+            matched_terms.append(alias)
+            break
+    for alias in profile.mid_aliases:
+        if _phrase_in(alias, text):
+            signals.append(W_MID_ALIAS)
+            matched_by.append("mid_alias")
+            matched_terms.append(alias)
+            break
+    for pattern, weight in profile.rule_aliases:
+        if _phrase_in(pattern, text):
+            signals.append(weight)
+            matched_by.append("manual_rule")
+            matched_terms.append(pattern)
+            break
+
+    owned = _source_owned(pub, profile.code)
+    has_context = any(_phrase_in(w, text) for w in TICKER_CONTEXT_WORDS)
+    for ticker in profile.tickers:
+        if not _phrase_in(ticker, text):
+            continue
+        parenthesized = re.search(rf"\({re.escape(ticker)}\)", text) is not None
+        context = has_context or parenthesized or owned or bool(matched_terms)
+        if ticker in AMBIGUOUS_TICKERS and not context:
+            rejected_terms.append(ticker)
+            continue
+        if context:
+            signals.append(W_TICKER_CTX if len(ticker) >= 3 else W_MID_ALIAS)
+            matched_by.append("ticker_with_context")
+        else:
+            signals.append(W_TICKER_BARE)
+            matched_by.append("ticker_no_context")
+        matched_terms.append(ticker)
+        break
+
+    # Уровень D: fuzzy — только кандидат, требует любого другого признака.
+    fuzzy_score = fuzz.token_set_ratio(_norm(pub.get("title", "")), profile.names[0]) if profile.names else 0
+    if fuzzy_score >= 85 and (signals or owned):
+        signals.append(W_FUZZY_HIGH if fuzzy_score >= 92 else W_FUZZY_MID)
+        matched_by.append(f"fuzzy_{fuzzy_score:.0f}")
+
+    score = max(signals) if signals else 0.0
+    if owned and (signals or has_corporate_keywords(pub)):
+        score += W_OWNED_BONUS
+        matched_by.append("source_owned_by_asset")
+        # Персональная IR-страница + признаки корпоративного события —
+        # достаточное основание для medium даже без текстового совпадения имени.
+        if not signals:
+            score = max(score, MEDIUM)
+    strong = [s for s in signals if s >= W_MID_ALIAS]
+    if len(strong) >= 2:
+        score += 0.05
+
+    for negative in profile.negatives:
+        if _phrase_in(negative, text) and score < W_FULL_NAME and not owned:
+            score -= NEGATIVE_PENALTY
+            rejected_terms.append(negative)
+            matched_by.append("negative_alias_penalty")
+
+    score = max(0.0, min(1.0, score))
+    explanation = (f"{profile.code}: score {score:.2f} — "
+                   + ("; ".join(matched_by) if matched_by else "совпадений нет"))
+    return MatchResult(profile.code, score, _confidence(score),
+                       matched_by, matched_terms, rejected_terms, explanation)
+
+
+def match_publication(pub: dict, profiles: list[AssetProfile]) -> list[MatchResult]:
+    """Все ненулевые совпадения, отсортированные по score."""
+    results = [match_one(pub, p) for p in profiles]
+    results = [r for r in results if r.score > 0]
+    results.sort(key=lambda r: r.score, reverse=True)
+    return results
+
+
+# Обратная совместимость для простых проверок.
+def match_assets(publication: dict, profiles: list[AssetProfile],
+                 subscribers: list[str] | None = None) -> list[str]:
+    if subscribers is not None:
+        publication = {**publication, "subscribers": subscribers}
+    return [r.asset_code for r in match_publication(publication, profiles)
+            if r.confidence in ("high", "medium")]
+
+
+def build_asset_index(assets: list[dict]) -> list[AssetProfile]:
+    """Совместимое имя: теперь возвращает профили для скоринга."""
+    return build_profiles(assets, db.list_matcher_rules())
+
+
+# --- Конвейерная фильтрация -----------------------------------------------------
+
+def filter_publications(publications: list[dict], profiles: list[AssetProfile],
+                        lookback_days: int, stats=None) -> list[dict]:
+    """Каскад дешёвых фильтров + скоринг. На выходе — публикации с asset_codes
+    (high/medium), url_hash, title_hash и match_results. Low/unmatched сохраняются
+    в очередь диагностики и не идут в LLM."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+    seen_urls: set[str] = set()
+    seen_titles: set[str] = set()
+    kept: list[dict] = []
+    for p in publications:
+        uh, th = url_hash(p.get("url", "")), title_hash(p.get("title", ""))
+        if uh in seen_urls or (th and th in seen_titles):
+            continue
+        seen_urls.add(uh)
+        if th:
+            seen_titles.add(th)
+        published = p.get("published_dt")
+        if published and published < cutoff:
+            continue
+        if db.article_seen(uh, th):
+            if stats is not None:
+                stats.cache_hits += 1
+            continue
+        if stats is not None:
+            stats.new_after_cache += 1
+        if not has_corporate_keywords(p):
+            db.remember_article(p.get("url", ""), uh, th, p.get("published_at"),
+                                p.get("source"), "skipped:no_keywords",
+                                status="keyword_filtered", title=p.get("title"))
+            continue
+        if stats is not None:
+            stats.after_keywords += 1
+        results = match_publication(p, profiles)
+        best = results[0] if results else None
+        confident = [r for r in results if r.confidence in ("high", "medium")]
+        if confident:
+            if stats is not None:
+                stats.matched_high += sum(1 for r in confident if r.confidence == "high")
+                stats.matched_medium += sum(1 for r in confident if r.confidence == "medium")
+            kept.append({**p, "url_hash": uh, "title_hash": th,
+                         "asset_codes": [r.asset_code for r in confident],
+                         "match_results": confident})
+            continue
+        # Чужие публикации глобальных SEC/биржевых фидов и поисковый шум Tavily
+        # без единого кандидата не засоряют пользовательскую очередь unmatched.
+        is_global_feed = not (p.get("subscribers") or []) or p.get("source_type") == "SEARCH"
+        if is_global_feed and not results:
+            if stats is not None:
+                stats.irrelevant_global += 1
+            db.remember_article(p.get("url", ""), uh, th, p.get("published_at"),
+                                p.get("source"), "skipped:irrelevant_global",
+                                status="irrelevant_global", title=p.get("title"), text=p.get("text"))
+            continue
+        # Low и unmatched со слабым кандидатом: локальная очередь диагностики, в LLM не идут.
+        reason = f"best {best.score:.2f} ({best.asset_code})" if best else "no_candidates"
+        if best and best.confidence == "low" and stats is not None:
+            stats.matched_low += 1
+        elif stats is not None:
+            stats.unmatched += 1
+        db.remember_article(p.get("url", ""), uh, th, p.get("published_at"),
+                            p.get("source"), f"skipped:no_asset_match ({reason})",
+                            status="unmatched", title=p.get("title"), text=p.get("text"),
+                            best_asset=best.asset_code if best else None,
+                            best_score=best.score if best else None)
+        db.save_unmatched(uh, best.asset_code if best else None,
+                          best.score if best else None,
+                          json.dumps([r.as_dict() for r in results[:5]], ensure_ascii=False),
+                          "low_confidence" if best and best.confidence == "low" else "no_match")
+    return kept

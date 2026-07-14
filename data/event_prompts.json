@@ -1,0 +1,1406 @@
+[
+  {
+    "event_type": "Запуск нового фьючерсного контракта на тот же базис",
+    "instrument_type": "ASSET",
+    "search_phrase": "announcements of new contract listings (new maturities or alternative contract types) on the same underlying",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Запуск нового фьючерсного контракта на тот же базис",
+    "instrument_type": "ASSET",
+    "search_phrase": "introduction of additional futures products or contract variants on this underlying",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Запуск нового фьючерсного контракта на тот же базис",
+    "instrument_type": "ASSET",
+    "search_phrase": "launch or listing of a new futures contract on the same underlying commodity",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение алгоритма определения цены базисного актива (бенчмарк)",
+    "instrument_type": "ASSET",
+    "search_phrase": "amendments to price assessment methodology or reference benchmark for the underlying",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение алгоритма определения цены базисного актива (бенчмарк)",
+    "instrument_type": "ASSET",
+    "search_phrase": "changes to the benchmark, pricing source or index used to determine the underlying price",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение алгоритма определения цены базисного актива (бенчмарк)",
+    "instrument_type": "ASSET",
+    "search_phrase": "updates to how the official underlying price is calculated (change of index provider or pricing agency)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение базовой валюты цены базисного актива",
+    "instrument_type": "ASSET",
+    "search_phrase": "amendments to the base currency in which prices are quoted for this contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение базовой валюты цены базисного актива",
+    "instrument_type": "ASSET",
+    "search_phrase": "changes to the currency of quotation or settlement currency for the underlying or contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение базовой валюты цены базисного актива",
+    "instrument_type": "ASSET",
+    "search_phrase": "notices about switching the contract price quotation from one currency to another",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение единиц измерения цены базисного актива (ед. фиксинга)",
+    "instrument_type": "ASSET",
+    "search_phrase": "amendments to quotation units or fixing units for the underlying price",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение единиц измерения цены базисного актива (ед. фиксинга)",
+    "instrument_type": "ASSET",
+    "search_phrase": "changes to the unit of measure in which prices are quoted (e.g. per tonne, per MWh, per barrel)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение единиц измерения цены базисного актива (ед. фиксинга)",
+    "instrument_type": "ASSET",
+    "search_phrase": "notices about switching price quotation to a different physical unit (e.g. kg vs tonnes, MMBtu vs MWh)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение масштабов цены базисного актива (scale)",
+    "instrument_type": "ASSET",
+    "search_phrase": "amendments to price multiplier or contract value scale (e.g. price quoted in cents instead of dollars)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение масштабов цены базисного актива (scale)",
+    "instrument_type": "ASSET",
+    "search_phrase": "changes to the price scale or quotation convention (e.g. decimal place or price multiplier) for the contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение масштабов цены базисного актива (scale)",
+    "instrument_type": "ASSET",
+    "search_phrase": "updates to the price scaling factor used in contract quotation or valuation",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение наименования базисного актива",
+    "instrument_type": "ASSET",
+    "search_phrase": "amendments to product description or contract name for the underlying commodity",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение наименования базисного актива",
+    "instrument_type": "ASSET",
+    "search_phrase": "changes to the official name or description of the underlying commodity",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение наименования базисного актива",
+    "instrument_type": "ASSET",
+    "search_phrase": "notices about renaming the underlying asset in the contract specifications",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение стандартов поставки/качества/логистики/хранилищ; смена типа (physical→cash)",
+    "instrument_type": "ASSET",
+    "search_phrase": "amendments to underlying grade, delivery locations, approved warehouses or load-out rules",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение стандартов поставки/качества/логистики/хранилищ; смена типа (physical→cash)",
+    "instrument_type": "ASSET",
+    "search_phrase": "changes to delivery terms, quality specifications, warehouses or shipping points for the contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение стандартов поставки/качества/логистики/хранилищ; смена типа (physical→cash)",
+    "instrument_type": "ASSET",
+    "search_phrase": "conversion of the contract from physically delivered to cash-settled, or changes in delivery vs cash settlement terms",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового кода базисного актива (ISIN/CFI)",
+    "instrument_type": "ASSET",
+    "search_phrase": "changes to the trading symbol, ISIN or CFI code of the underlying or futures contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового кода базисного актива (ISIN/CFI)",
+    "instrument_type": "ASSET",
+    "search_phrase": "notices about renaming or re-coding the instrument identifier (ticker / ISIN / CFI)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового кода базисного актива (ISIN/CFI)",
+    "instrument_type": "ASSET",
+    "search_phrase": "updates to product code or instrument identifier used for trading this contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения в шаге цены (tick size)",
+    "instrument_type": "ASSET",
+    "search_phrase": "amendments to tick value or price increment for trading the contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения в шаге цены (tick size)",
+    "instrument_type": "ASSET",
+    "search_phrase": "changes to minimum price fluctuation / tick size for the futures contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения в шаге цены (tick size)",
+    "instrument_type": "ASSET",
+    "search_phrase": "revisions to the contract’s tick size or minimum price movement",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения маржинальных требований/ГО",
+    "instrument_type": "ASSET",
+    "search_phrase": "amendments to clearing house margin parameters or SPAN margin settings for this contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения маржинальных требований/ГО",
+    "instrument_type": "ASSET",
+    "search_phrase": "changes to initial and maintenance margin requirements for the contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения маржинальных требований/ГО",
+    "instrument_type": "ASSET",
+    "search_phrase": "margin update notices for this futures contract (increasing or decreasing margin levels)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения метода расчёта расчётной цены (settlement methodology)",
+    "instrument_type": "ASSET",
+    "search_phrase": "amendments to how the settlement price is determined (settlement procedures or pricing formula)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения метода расчёта расчётной цены (settlement methodology)",
+    "instrument_type": "ASSET",
+    "search_phrase": "changes to settlement methodology or final settlement price calculation for the contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения метода расчёта расчётной цены (settlement methodology)",
+    "instrument_type": "ASSET",
+    "search_phrase": "updates to cash settlement procedures or official settlement calculation method for the contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения размера контракта (lot size)",
+    "instrument_type": "ASSET",
+    "search_phrase": "changes to futures contract size or lot size (amendments to contract unit or quantity per contract)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения размера контракта (lot size)",
+    "instrument_type": "ASSET",
+    "search_phrase": "notices about increasing or decreasing contract size (number of units per futures contract)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения размера контракта (lot size)",
+    "instrument_type": "ASSET",
+    "search_phrase": "revisions to the lot size / contract unit of the listed futures contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения срока обращения или графика экспираций",
+    "instrument_type": "ASSET",
+    "search_phrase": "amendments to contract months listed or expiration calendar for this futures contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения срока обращения или графика экспираций",
+    "instrument_type": "ASSET",
+    "search_phrase": "changes to listing cycle, expiry schedule or last trading day for the contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменения срока обращения или графика экспираций",
+    "instrument_type": "ASSET",
+    "search_phrase": "updates to trading period, contract months or final trading / first notice day timetable",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Прекращение публикации фиксинга",
+    "instrument_type": "ASSET",
+    "search_phrase": "announcements that a benchmark or reference price will cease to be published for this underlying",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Прекращение публикации фиксинга",
+    "instrument_type": "ASSET",
+    "search_phrase": "discontinuation or cessation of the official price fixing or reference price for the underlying",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Прекращение публикации фиксинга",
+    "instrument_type": "ASSET",
+    "search_phrase": "notices about end of publication of the official fixing or settlement reference rate",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Претензии от поставщиков данных",
+    "instrument_type": "ASSET",
+    "search_phrase": "announcements of data publication changes or discontinuation affecting this contract’s prices",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Претензии от поставщиков данных",
+    "instrument_type": "ASSET",
+    "search_phrase": "claims or license changes from data providers regarding this contract’s prices or indicators",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Претензии от поставщиков данных",
+    "instrument_type": "ASSET",
+    "search_phrase": "notices about restrictions or new licensing terms for using price data on this contract",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Приостановка торгов базисным активом",
+    "instrument_type": "ASSET",
+    "search_phrase": "announcements of temporary or permanent suspension of trading in the underlying asset",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Приостановка торгов базисным активом",
+    "instrument_type": "ASSET",
+    "search_phrase": "exchange notices about trading halt, suspension or delisting of the underlying commodity",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Приостановка торгов базисным активом",
+    "instrument_type": "ASSET",
+    "search_phrase": "suspension or halt of trading in the underlying instrument or related futures",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Возврат капитала по ETF (capital distribution)",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements where the ETF returns part of invested capital rather than income/dividends",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Возврат капитала по ETF (capital distribution)",
+    "instrument_type": "ETF",
+    "search_phrase": "capital distribution or return of capital from the ETF to unitholders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Возврат капитала по ETF (capital distribution)",
+    "instrument_type": "ETF",
+    "search_phrase": "notices describing non-dividend capital payments or capital reduction events for the ETF",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Выделение (spin-off) с получением паёв нового фонда",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements about distribution of units of a spun-off ETF or related fund to current unitholders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Выделение (spin-off) с получением паёв нового фонда",
+    "instrument_type": "ETF",
+    "search_phrase": "notices describing spin-off terms and allocation of new fund units to ETF investors",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Выделение (spin-off) с получением паёв нового фонда",
+    "instrument_type": "ETF",
+    "search_phrase": "spin-off where ETF unitholders receive units of a new fund in addition to or instead of existing ETF",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Выкуп паёв ETF эмитентом (tender / buyback / issuer bid)",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements of issuer bids or offers to buy back ETF units from unitholders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Выкуп паёв ETF эмитентом (tender / buyback / issuer bid)",
+    "instrument_type": "ETF",
+    "search_phrase": "issuer tender offer or buyback where the ETF sponsor offers to repurchase units",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Выкуп паёв ETF эмитентом (tender / buyback / issuer bid)",
+    "instrument_type": "ETF",
+    "search_phrase": "notices about tender offers with specified price and acceptance period for ETF units",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Делистинг ETF с биржи",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements that the ETF will cease trading and be removed from the exchange listing",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Делистинг ETF с биржи",
+    "instrument_type": "ETF",
+    "search_phrase": "delisting of the ETF from the exchange where it is currently traded",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Делистинг ETF с биржи",
+    "instrument_type": "ETF",
+    "search_phrase": "notices describing last trading date and delisting procedures for the ETF",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дробление паёв ETF (stock split)",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements about increase in the number of ETF units outstanding due to unit split",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дробление паёв ETF (stock split)",
+    "instrument_type": "ETF",
+    "search_phrase": "notices describing split ratios for ETF units (e.g. 1-to-10 split)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дробление паёв ETF (stock split)",
+    "instrument_type": "ETF",
+    "search_phrase": "stock split of ETF units where each existing unit is split into multiple units",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение базовой валюты котировки ETF (redenomination)",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements about redenomination of the ETF units or switch of trading currency",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение базовой валюты котировки ETF (redenomination)",
+    "instrument_type": "ETF",
+    "search_phrase": "changes to the base currency in which the ETF is quoted or settled",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение базовой валюты котировки ETF (redenomination)",
+    "instrument_type": "ETF",
+    "search_phrase": "notices about changing ETF quotation currency (e.g. from RUB to USD or EUR)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение логики торговых систем, влияющих на торги ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements about new order handling, matching algorithms or protections that materially impact ETF trading behaviour",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение логики торговых систем, влияющих на торги ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "changes or upgrades to exchange trading system logic that specifically affect trading in the ETF",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение логики торговых систем, влияющих на торги ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "notices about technical changes, throttling, circuit breakers or volatility controls applied to the ETF order book",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение маржинальных требований/уровней ГО по ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "amendments to clearing house margin models or risk coefficients specifically for the ETF",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение маржинальных требований/уровней ГО по ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "changes to initial and maintenance margin requirements or leverage limits for the ETF",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение маржинальных требований/уровней ГО по ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "margin update notices for ETF positions (increasing or decreasing risk parameters or haircuts)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение наименования ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements about rebranding or renaming of the ETF fund",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение наименования ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "changes to the official name or description of the ETF",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение наименования ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "notices about amendments to the ETF marketing name or legal fund name",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение принципов управления ETF (пассивный/активный)",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements about transition from index-tracking ETF to actively managed strategy or the reverse",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение принципов управления ETF (пассивный/активный)",
+    "instrument_type": "ETF",
+    "search_phrase": "changes to the management style of the ETF, such as switching between passive and active management",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение принципов управления ETF (пассивный/активный)",
+    "instrument_type": "ETF",
+    "search_phrase": "notices describing substantial changes to ETF portfolio management approach or investment objective",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение режима расчётов/клиринга по ETF (T+n)",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements about amendments to ETF settlement dates, clearing procedures or post-trade processing",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение режима расчётов/клиринга по ETF (T+n)",
+    "instrument_type": "ETF",
+    "search_phrase": "changes to the settlement cycle or clearing regime for ETF trades (e.g. T+1, T+2)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение режима расчётов/клиринга по ETF (T+n)",
+    "instrument_type": "ETF",
+    "search_phrase": "notices about migration of ETF trades to a new settlement cycle or clearing segment",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение стандартного торгового лота по ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "amendments to the minimum tradable quantity or board lot for the ETF on the exchange",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение стандартного торгового лота по ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "changes to the standard trading lot size (contract size) for the ETF units",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение стандартного торгового лота по ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "notices about increasing or decreasing the standard lot size of ETF shares/units",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение статуса/квалификации базового индекса ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements about reclassification, discontinuation or major methodology change of the index tracked by the ETF",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение статуса/квалификации базового индекса ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "changes to the status or qualification of the ETF underlying index",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение статуса/квалификации базового индекса ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "notices describing the underlying index no longer being eligible or recognised in the same way for the ETF",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового кода / ISIN / CFI ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "changes to the ETF trading symbol, ISIN or CFI code on the exchange",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового кода / ISIN / CFI ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "notices about renaming or re-coding the ETF identifier (ticker / ISIN / CFI)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового кода / ISIN / CFI ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "updates to ETF product code or instrument identifier used for trading and settlement",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового режима/расписания торгов ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "amendments to ETF trading hours, opening/closing times, intraday breaks or auction/continuous trading regime",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового режима/расписания торгов ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "changes to the trading session schedule or trading mode of the ETF on the exchange",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового режима/расписания торгов ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "notices about introduction or cancellation of special trading modes for the ETF (e.g. negotiated trades only, closing auction only)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение шага цены (tick size) по ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "amendments to the tick value or price step used in the ETF order book",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение шага цены (tick size) по ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "changes to the minimum price increment / tick size for the ETF",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение шага цены (tick size) по ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "revisions to the ETF tick size table or quoting increments by price band",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Конвертация паёв ETF в паи другого фонда или класса",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements about automatic or elective conversion of ETF units to a different class or vehicle",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Конвертация паёв ETF в паи другого фонда или класса",
+    "instrument_type": "ETF",
+    "search_phrase": "conversion of ETF units into units of another fund or another share class",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Конвертация паёв ETF в паи другого фонда или класса",
+    "instrument_type": "ETF",
+    "search_phrase": "notices describing conversion ratios and procedures for ETF unit holders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Консолидация паёв ETF (reverse stock split)",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements about consolidation of ETF units and reverse split ratios",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Консолидация паёв ETF (reverse stock split)",
+    "instrument_type": "ETF",
+    "search_phrase": "notices describing reverse split of ETF units (e.g. 10-to-1 consolidation)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Консолидация паёв ETF (reverse stock split)",
+    "instrument_type": "ETF",
+    "search_phrase": "reverse stock split (consolidation) of ETF units into fewer, higher-priced units",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Прекращение/ликвидация ETF (окончательное закрытие фонда)",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements about closure of the ETF and distribution of remaining assets",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Прекращение/ликвидация ETF (окончательное закрытие фонда)",
+    "instrument_type": "ETF",
+    "search_phrase": "notices describing final valuation date, liquidation schedule and redemption process for the ETF",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Прекращение/ликвидация ETF (окончательное закрытие фонда)",
+    "instrument_type": "ETF",
+    "search_phrase": "termination, liquidation or wind-up of the ETF with final payout to unitholders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Признание полной потери стоимости паёв ETF (worthless)",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements stating that ETF units are valued at zero or effectively written off",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Признание полной потери стоимости паёв ETF (worthless)",
+    "instrument_type": "ETF",
+    "search_phrase": "notices about complete loss of value for ETF units due to underlying asset collapse or other reasons",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Признание полной потери стоимости паёв ETF (worthless)",
+    "instrument_type": "ETF",
+    "search_phrase": "recognition that ETF units have become worthless or have no economic value",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Приостановка торгов паёв ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements about trading halt or suspension of the ETF due to corporate actions or regulatory reasons",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Приостановка торгов паёв ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "notices describing conditions and duration of ETF trading suspension or halt",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Приостановка торгов паёв ETF",
+    "instrument_type": "ETF",
+    "search_phrase": "temporary or permanent suspension of trading in ETF units on the exchange",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Реорганизация/слияние ETF с другим фондом (merger)",
+    "instrument_type": "ETF",
+    "search_phrase": "announcements about ETF mergers, absorption into another ETF or successor fund",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Реорганизация/слияние ETF с другим фондом (merger)",
+    "instrument_type": "ETF",
+    "search_phrase": "merger or reorganisation where the ETF is combined with another fund",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Реорганизация/слияние ETF с другим фондом (merger)",
+    "instrument_type": "ETF",
+    "search_phrase": "notices describing exchange ratio and timeline for ETF fund merger or amalgamation",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Введение процедур банкротства эмитента (включая возможную ликвидацию)",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements about court-approved bankruptcy, restructuring or liquidation procedures for the company",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Введение процедур банкротства эмитента (включая возможную ликвидацию)",
+    "instrument_type": "SHARE",
+    "search_phrase": "initiation of bankruptcy, insolvency or similar proceedings against the issuer, potentially leading to liquidation",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Введение процедур банкротства эмитента (включая возможную ликвидацию)",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices describing key stages of issuer bankruptcy process affecting share/ADR holders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Возврат капитала (capital distribution)",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements where the company returns part of invested capital rather than ordinary dividends",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Возврат капитала (capital distribution)",
+    "instrument_type": "SHARE",
+    "search_phrase": "capital distribution or return of capital from the issuer to shareholders or ADR holders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Возврат капитала (capital distribution)",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices describing non-dividend capital payments or capital reduction events for the shares/ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Выделение (spin-off) нового эмитента с распределением его акций",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements about corporate spin-off with distribution of new company shares to existing investors",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Выделение (spin-off) нового эмитента с распределением его акций",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices describing spin-off terms and allocation of new issuer shares to current shareholders/ADR holders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Выделение (spin-off) нового эмитента с распределением его акций",
+    "instrument_type": "SHARE",
+    "search_phrase": "spin-off where shareholders or ADR holders receive shares in a new issuer",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Делистинг акций/ADR с биржи",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements that the shares/ADR will cease trading and be removed from the exchange listing",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Делистинг акций/ADR с биржи",
+    "instrument_type": "SHARE",
+    "search_phrase": "delisting of the shares or ADR from the exchange where they are currently traded",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Делистинг акций/ADR с биржи",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices describing last trading date and delisting procedures for the shares/ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дополнительный выпуск акций/ADR (bonus / rights issue)",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements about additional share/ADR issuance with subscription rights or free allocation",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дополнительный выпуск акций/ADR (bonus / rights issue)",
+    "instrument_type": "SHARE",
+    "search_phrase": "bonus issue or rights issue of additional shares or ADR to existing investors",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дополнительный выпуск акций/ADR (bonus / rights issue)",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices describing terms of new shares/ADR issue, including subscription price and ratio",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Доработка/изменение логики торговых систем, влияющих на торги акцией/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements about new order handling, matching algorithms or protections that materially impact share/ADR trading behaviour",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Доработка/изменение логики торговых систем, влияющих на торги акцией/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "changes or upgrades to exchange trading system logic that specifically affect trading in the share or ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Доработка/изменение логики торговых систем, влияющих на торги акцией/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices about technical changes, throttling, circuit breakers or volatility controls applied to the share/ADR order book",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дробление акций/ADR (stock split)",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements about increase in the number of shares/ADR outstanding due to stock split",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дробление акций/ADR (stock split)",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices describing split ratios for shares/ADR (e.g. 1-to-10 split)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дробление акций/ADR (stock split)",
+    "instrument_type": "SHARE",
+    "search_phrase": "stock split of shares or ADR where each existing security is split into multiple units",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение ADR-ratio (изменение соотношения акций к одной ADR)",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements about amendments to share-to-ADR ratio for a depositary receipt programme",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение ADR-ratio (изменение соотношения акций к одной ADR)",
+    "instrument_type": "SHARE",
+    "search_phrase": "changes to the ADR ratio, i.e. the number of underlying shares represented by one ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение ADR-ratio (изменение соотношения акций к одной ADR)",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices describing new ADR ratio (e.g. one ADR now represents more or fewer underlying shares)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение базовой валюты котировки акции/ADR (redenomination)",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements about redenomination of shares/ADR or switch of trading currency",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение базовой валюты котировки акции/ADR (redenomination)",
+    "instrument_type": "SHARE",
+    "search_phrase": "changes to the base currency in which the share or ADR is quoted or settled",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение базовой валюты котировки акции/ADR (redenomination)",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices about changing quotation currency of the share/ADR (e.g. from RUB to USD or EUR)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение маржинальных требований и/или режима расчётов по акции/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements about amendments to leverage limits, margin coefficients or settlement cycle for share/ADR trades",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение маржинальных требований и/или режима расчётов по акции/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "changes to margin requirements and/or settlement regime for the share or ADR (e.g. cash vs margin trading, T+1 vs T+2)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение маржинальных требований и/или режима расчётов по акции/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices describing simultaneous changes to margining rules and post-trade settlement of the share/ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение номинальной стоимости акций без изменения количества",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements about decrease or increase of share nominal value with unchanged share count",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение номинальной стоимости акций без изменения количества",
+    "instrument_type": "SHARE",
+    "search_phrase": "changes to the nominal/par value of the shares without changing the number of shares outstanding",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение номинальной стоимости акций без изменения количества",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices describing legal capital reorganisation via nominal value change for the shares",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение стандартного торгового лота по акции/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "amendments to the minimum tradable quantity or round lot for the share/ADR on the exchange",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение стандартного торгового лота по акции/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "changes to the standard trading lot size (board lot) for the share or ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение стандартного торгового лота по акции/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices about increasing or decreasing the standard lot size of shares or depositary receipts",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового режима или расписания торгов акцией/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "amendments to share/ADR trading hours, opening/closing times, intraday breaks or auction/continuous trading regime",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового режима или расписания торгов акцией/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "changes to the trading session schedule or trading mode of the share or ADR on the exchange",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового режима или расписания торгов акцией/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices about introduction or cancellation of special trading modes for the share/ADR (e.g. negotiated trades only, closing auction only)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение шага цены (tick size) по акции/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "amendments to the tick value or price step used in the share/ADR order book",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение шага цены (tick size) по акции/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "changes to the minimum price increment / tick size for the share or ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение шага цены (tick size) по акции/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "revisions to the share/ADR tick size table or quoting increments by price band",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Конвертация акций/ADR в другой выпуск того же эмитента",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements about exchange of one class or line of shares/ADR into another class or line",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Конвертация акций/ADR в другой выпуск того же эмитента",
+    "instrument_type": "SHARE",
+    "search_phrase": "conversion of shares or ADR into another issue of the same issuer",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Конвертация акций/ADR в другой выпуск того же эмитента",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices describing conversion ratios and procedures for exchanging existing shares/ADR into a new issue",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Консолидация акций/ADR (reverse stock split)",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements about consolidation of shares/ADR and reverse split ratios",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Консолидация акций/ADR (reverse stock split)",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices describing reverse split of shares or ADR (e.g. 10-to-1 consolidation)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Консолидация акций/ADR (reverse stock split)",
+    "instrument_type": "SHARE",
+    "search_phrase": "reverse stock split (consolidation) of shares or ADR into fewer, higher-priced units",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Обесценение и признание полной потери стоимости ценных бумаг",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements stating that the securities are valued at zero or effectively written off",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Обесценение и признание полной потери стоимости ценных бумаг",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices about complete loss of value for the shares/ADR due to bankruptcy, delisting or other events",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Обесценение и признание полной потери стоимости ценных бумаг",
+    "instrument_type": "SHARE",
+    "search_phrase": "recognition that the shares or ADR have become worthless or have no economic value",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Предложение о выкупе акций/ADR эмитентом (tender / issuer bid / buyback)",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements of issuer bids or takeover offers inviting shareholders/ADR holders to sell their securities",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Предложение о выкупе акций/ADR эмитентом (tender / issuer bid / buyback)",
+    "instrument_type": "SHARE",
+    "search_phrase": "issuer or third-party tender offer or buyback proposal for the shares or ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Предложение о выкупе акций/ADR эмитентом (tender / issuer bid / buyback)",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices about tender offers with specified price, acceptance period and conditions for shares/ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Приостановка торгов акциями/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements about trading halt or suspension of shares/ADR due to corporate actions or regulatory reasons",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Приостановка торгов акциями/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices describing conditions and duration of share/ADR trading suspension or halt",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Приостановка торгов акциями/ADR",
+    "instrument_type": "SHARE",
+    "search_phrase": "temporary or permanent suspension of trading in the shares or ADR on the exchange",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Слияние/объединение компаний с обменом акций (merger)",
+    "instrument_type": "SHARE",
+    "search_phrase": "announcements about mergers, amalgamations or takeovers where shareholders receive shares in another entity",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Слияние/объединение компаний с обменом акций (merger)",
+    "instrument_type": "SHARE",
+    "search_phrase": "merger or combination of companies with exchange of shares",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Слияние/объединение компаний с обменом акций (merger)",
+    "instrument_type": "SHARE",
+    "search_phrase": "notices describing share exchange ratio and timeline for completion of the merger transaction",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Банкротство базового эмитента (включая возможную ликвидацию)",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements about court-approved bankruptcy, restructuring or liquidation procedures for the company whose shares back the ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Банкротство базового эмитента (включая возможную ликвидацию)",
+    "instrument_type": "ADR",
+    "search_phrase": "initiation of bankruptcy, insolvency or similar proceedings against the underlying issuer, potentially leading to liquidation",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Банкротство базового эмитента (включая возможную ликвидацию)",
+    "instrument_type": "ADR",
+    "search_phrase": "notices describing key stages of issuer bankruptcy process affecting ADR holders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Возврат капитала держателям ADR (capital distribution)",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements where the company returns part of invested capital to ADR holders rather than ordinary dividends",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Возврат капитала держателям ADR (capital distribution)",
+    "instrument_type": "ADR",
+    "search_phrase": "capital distribution or return of capital from the issuer to ADR holders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Возврат капитала держателям ADR (capital distribution)",
+    "instrument_type": "ADR",
+    "search_phrase": "notices describing non-dividend capital payments or capital reduction events affecting ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Выделение (spin-off) нового эмитента с распределением его бумаг держателям ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements about corporate spin-off with distribution of new company shares/ADR to existing ADR holders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Выделение (spin-off) нового эмитента с распределением его бумаг держателям ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "notices describing spin-off terms and allocation of new issuer securities to current ADR holders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Выделение (spin-off) нового эмитента с распределением его бумаг держателям ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "spin-off where ADR holders receive shares or receipts in a new issuer",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Делистинг ADR с биржи",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements that the ADR will cease trading and be removed from the exchange listing",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Делистинг ADR с биржи",
+    "instrument_type": "ADR",
+    "search_phrase": "delisting of the ADR from the exchange where it is currently traded",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Делистинг ADR с биржи",
+    "instrument_type": "ADR",
+    "search_phrase": "notices describing last trading date and delisting procedures for the ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дополнительный выпуск ADR (bonus / rights issue)",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements about additional ADR issuance with subscription rights or free allocation",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дополнительный выпуск ADR (bonus / rights issue)",
+    "instrument_type": "ADR",
+    "search_phrase": "bonus issue or rights issue of additional ADR or underlying shares for ADR holders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дополнительный выпуск ADR (bonus / rights issue)",
+    "instrument_type": "ADR",
+    "search_phrase": "notices describing terms of new ADR issue, including subscription price and ratio for existing holders",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Доработка/изменение логики торговых систем, влияющих на торги ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements about new order handling, matching algorithms or protections that materially impact ADR trading behaviour",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Доработка/изменение логики торговых систем, влияющих на торги ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "changes or upgrades to exchange trading system logic that specifically affect trading in the ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Доработка/изменение логики торговых систем, влияющих на торги ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "notices about technical changes, throttling, circuit breakers or volatility controls applied to the ADR order book",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дробление ADR (stock split)",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements about increase in the number of ADR outstanding due to stock split",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дробление ADR (stock split)",
+    "instrument_type": "ADR",
+    "search_phrase": "notices describing split ratios for ADR (e.g. 1-to-10 split)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Дробление ADR (stock split)",
+    "instrument_type": "ADR",
+    "search_phrase": "stock split of ADR where each existing receipt is split into multiple units",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение ADR-ratio (соотношения акций к одной ADR)",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements about amendments to share-to-ADR ratio for a depositary receipt programme",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение ADR-ratio (соотношения акций к одной ADR)",
+    "instrument_type": "ADR",
+    "search_phrase": "changes to the ADR ratio, i.e. the number of underlying shares represented by one ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение ADR-ratio (соотношения акций к одной ADR)",
+    "instrument_type": "ADR",
+    "search_phrase": "notices describing new ADR ratio (e.g. one ADR now represents more or fewer underlying shares)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение базовой валюты котировки ADR (redenomination)",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements about redenomination of ADR or switch of trading currency",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение базовой валюты котировки ADR (redenomination)",
+    "instrument_type": "ADR",
+    "search_phrase": "changes to the base currency in which the ADR is quoted or settled",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение базовой валюты котировки ADR (redenomination)",
+    "instrument_type": "ADR",
+    "search_phrase": "notices about changing quotation currency of the ADR (e.g. from RUB to USD or EUR)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение маржинальных требований и/или режима расчётов по ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements about amendments to leverage limits, margin coefficients or settlement cycle for ADR trades",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение маржинальных требований и/или режима расчётов по ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "changes to margin requirements and/or settlement regime for the ADR (e.g. cash vs margin trading, T+1 vs T+2)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение маржинальных требований и/или режима расчётов по ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "notices describing simultaneous changes to margining rules and post-trade settlement of the ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение номинальной стоимости базовых акций без изменения количества ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements about decrease or increase of share nominal value with unchanged ADR count",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение номинальной стоимости базовых акций без изменения количества ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "changes to the nominal/par value of the underlying shares without changing the number of shares represented by ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение номинальной стоимости базовых акций без изменения количества ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "notices describing legal capital reorganisation via nominal value change of underlying shares affecting ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение стандартного торгового лота по ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "amendments to the minimum tradable quantity or round lot for the ADR on the exchange",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение стандартного торгового лота по ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "changes to the standard trading lot size (board lot) for the ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение стандартного торгового лота по ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "notices about increasing or decreasing the standard lot size of depositary receipts",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового режима или расписания торгов ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "amendments to ADR trading hours, opening/closing times, intraday breaks or auction/continuous trading regime",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового режима или расписания торгов ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "changes to the trading session schedule or trading mode of the ADR on the exchange",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение торгового режима или расписания торгов ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "notices about introduction or cancellation of special trading modes for the ADR (e.g. negotiated trades only, closing auction only)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение шага цены (tick size) по ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "amendments to the tick value or price step used in the ADR order book",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение шага цены (tick size) по ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "changes to the minimum price increment / tick size for the ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Изменение шага цены (tick size) по ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "revisions to the ADR tick size table or quoting increments by price band",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Конвертация ADR в другой выпуск или в базовые акции",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements about exchange of one ADR programme into another class or line",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Конвертация ADR в другой выпуск или в базовые акции",
+    "instrument_type": "ADR",
+    "search_phrase": "conversion of ADR into another issue of the same issuer or into underlying shares",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Конвертация ADR в другой выпуск или в базовые акции",
+    "instrument_type": "ADR",
+    "search_phrase": "notices describing conversion ratios and procedures for exchanging existing ADR into a new issue or shares",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Консолидация ADR (reverse stock split)",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements about consolidation of ADR and reverse split ratios",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Консолидация ADR (reverse stock split)",
+    "instrument_type": "ADR",
+    "search_phrase": "notices describing reverse split of ADR (e.g. 10-to-1 consolidation)",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Консолидация ADR (reverse stock split)",
+    "instrument_type": "ADR",
+    "search_phrase": "reverse stock split (consolidation) of ADR into fewer, higher-priced units",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Обесценение и признание полной потери стоимости ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements stating that the ADR are valued at zero or effectively written off",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Обесценение и признание полной потери стоимости ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "notices about complete loss of value for ADR due to bankruptcy, delisting or other events",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Обесценение и признание полной потери стоимости ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "recognition that the ADR have become worthless or have no economic value",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Предложение о выкупе ADR (tender / issuer bid / buyback)",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements of issuer bids or takeover offers inviting ADR holders to sell their receipts",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Предложение о выкупе ADR (tender / issuer bid / buyback)",
+    "instrument_type": "ADR",
+    "search_phrase": "issuer or third-party tender offer or buyback proposal for the ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Предложение о выкупе ADR (tender / issuer bid / buyback)",
+    "instrument_type": "ADR",
+    "search_phrase": "notices about tender offers with specified price, acceptance period and conditions for ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Приостановка торгов ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements about trading halt or suspension of ADR due to corporate actions or regulatory reasons",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Приостановка торгов ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "notices describing conditions and duration of ADR trading suspension or halt",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Приостановка торгов ADR",
+    "instrument_type": "ADR",
+    "search_phrase": "temporary or permanent suspension of trading in the ADR on the exchange",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Слияние/объединение компаний с обменом ADR (merger)",
+    "instrument_type": "ADR",
+    "search_phrase": "announcements about mergers, amalgamations or takeovers where ADR holders receive securities in another entity",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Слияние/объединение компаний с обменом ADR (merger)",
+    "instrument_type": "ADR",
+    "search_phrase": "merger or combination of companies with exchange of ADR",
+    "severity": "critical"
+  },
+  {
+    "event_type": "Слияние/объединение компаний с обменом ADR (merger)",
+    "instrument_type": "ADR",
+    "search_phrase": "notices describing ADR exchange ratio and timeline for completion of the merger transaction",
+    "severity": "critical"
+  }
+]
