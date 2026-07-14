@@ -42,6 +42,10 @@ EVENT_TYPE_RU = {
     "tender_offer": "Тендерное предложение",
     "rights_issue": "Размещение прав",
     "share_issuance": "Дополнительная эмиссия",
+    "listing": "Листинг",
+    "conversion": "Конвертация",
+    "capital_return": "Возврат капитала",
+    "name_change": "Изменение наименования",
 }
 
 SEVERITY_LABEL = {

@@ -145,6 +145,35 @@ class SplitProvider(FakeProvider):
 
 
 @pytest.mark.asyncio
+async def test_semantic_event_dedup_across_articles(tmp_db):
+    """Четыре разные статьи об одном листинге → одно событие, не четыре уведомления."""
+    db.upsert_asset("HYNIX", "Акции SK Hynix", "SHARE", aliases=["SK Hynix"])
+    monitor = Monitor.__new__(Monitor)
+    monitor.llm = SplitProvider()  # каждая статья классифицируется как событие
+    stats = ScanStats()
+    titles = [
+        "SK Hynix raised $26.5 billion in Wall Street listing",
+        "SK Hynix shares slide after stellar Nasdaq debut",
+        "Analysts discuss SK Hynix ADR listing impact",
+        "Gabelli Funds on upcoming SK Hynix listing",
+    ]
+    pubs = [{"url": f"https://x.com/{i}", "title": t, "text": "", "published_at": None,
+             "source": "Tavily", "url_hash": matcher.url_hash(f"https://x.com/{i}"),
+             "title_hash": matcher.title_hash(t), "asset_codes": ["HYNIX"]}
+            for i, t in enumerate(titles)]
+    events = await monitor.classify(pubs, stats)
+    saved = monitor.save_events(events, stats)
+    assert len(saved) == 1, "одно событие вместо четырёх"
+    assert stats.duplicates == 3
+    assert db.similar_event_exists("HYNIX", "stock_split") is True
+    # Следующий скан с новой статьёй о том же — тоже дубликат.
+    pub5 = {**pubs[0], "url": "https://y.com/5", "url_hash": matcher.url_hash("https://y.com/5"),
+            "title": "More coverage of SK Hynix listing", "title_hash": matcher.title_hash("More coverage")}
+    events5 = await monitor.classify([pub5], stats)
+    assert monitor.save_events(events5, stats) == []
+
+
+@pytest.mark.asyncio
 async def test_pipeline_classify_and_event_dedup(tmp_db):
     db.upsert_asset("SPYF", "SPDR S&P 500 ETF Trust", "ETF", aliases=["SPY"])
     monitor = Monitor.__new__(Monitor)  # без сетевых клиентов

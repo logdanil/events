@@ -431,6 +431,11 @@ async def debug_scan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 c_lines.append("   ≈ дубликат")
                 stats.duplicates += 1
                 continue
+            from app.monitor import EVENT_DEDUP_DAYS
+            if db.similar_event_exists(event["asset_code"], event["event_type"], days=EVENT_DEDUP_DAYS):
+                c_lines.append(f"   ≈ семантический дубликат ({event['event_type']} по активу за {EVENT_DEDUP_DAYS} дн. уже есть)")
+                stats.duplicates += 1
+                continue
             row_id = db.save_event(event)
             if row_id:
                 event["id"] = row_id

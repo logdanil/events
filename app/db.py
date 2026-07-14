@@ -871,6 +871,16 @@ def recent_events(limit: int = 20, asset_code: str | None = None,
         return [dict(r) for r in rows]
 
 
+def similar_event_exists(asset_code: str, event_type: str, days: int = 14) -> bool:
+    """Семантическая дедупликация: событие того же типа по тому же активу уже есть
+    в окне N дней — новые статьи о том же (пересказы, обсуждения) не плодят уведомления."""
+    with connect() as conn:
+        return conn.execute(
+            "SELECT 1 FROM events WHERE asset_code=? AND event_type=? AND is_test=0 "
+            "AND detected_at >= datetime('now', ?) LIMIT 1",
+            (asset_code.upper(), event_type, f"-{int(days)} days")).fetchone() is not None
+
+
 def last_event_for_asset(asset_code: str) -> dict[str, Any] | None:
     events = recent_events(limit=1, asset_code=asset_code)
     return events[0] if events else None

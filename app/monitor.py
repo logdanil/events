@@ -29,6 +29,9 @@ from app import search_monitor
 log = logging.getLogger(__name__)
 
 MIN_CONFIDENCE = 0.72
+# Окно семантической дедупликации: события одного типа по одному активу
+# в пределах окна считаются одним событием (пересказы не рассылаются повторно).
+EVENT_DEDUP_DAYS = 14
 
 
 @dataclass
@@ -245,6 +248,13 @@ class Monitor:
             if db.event_exists(e["fingerprint"]):
                 if stats:
                     stats.duplicates += 1
+                continue
+            # Другая статья о том же событии (тип+актив в окне) — дубликат, не уведомляем.
+            if db.similar_event_exists(e["asset_code"], e["event_type"], days=EVENT_DEDUP_DAYS):
+                if stats:
+                    stats.duplicates += 1
+                log.info("Семантический дубликат: %s/%s уже есть за последние %d дн. — «%.60s»",
+                         e["asset_code"], e["event_type"], EVENT_DEDUP_DAYS, e.get("title", ""))
                 continue
             row_id = db.save_event(e)
             if row_id:
