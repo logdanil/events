@@ -376,6 +376,71 @@ def format_scan_summary(stats, started_at: datetime | None = None,
     return "\n".join(lines)
 
 
+def _run_duration(run: dict) -> str:
+    try:
+        start = datetime.fromisoformat(str(run["started_at"]))
+        end = datetime.fromisoformat(str(run["finished_at"]))
+        return f"{int((end - start).total_seconds())} c"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def format_scan_history(runs: list[dict]) -> str:
+    """История проверок для /scans."""
+    if not runs:
+        return "Проверок ещё не было."
+    blocks = ["🕓 <b>История проверок</b> (последние " + str(len(runs)) + ")"]
+    for run in runs:
+        stats = {}
+        try:
+            stats = json.loads(run.get("stats_json") or "{}")
+        except json.JSONDecodeError:
+            pass
+        status_emoji = "✅" if run.get("status") == "ok" else ("⏳" if not run.get("finished_at") else "❌")
+        lines = [f"{status_emoji} #{run['id']} · {esc(format_datetime_msk(run['started_at']))} · {_run_duration(run)}"]
+        if stats:
+            lines.append(
+                f"   публикаций {stats.get('publications', 0)} · кэш {stats.get('cache_hits', 0)} · "
+                f"в LLM {stats.get('after_filter', 0)} · событий {stats.get('saved', run.get('new_events', 0))} · "
+                f"${stats.get('cost_usd', 0):.4f}")
+        else:
+            lines.append(f"   событий {run.get('new_events', 0)}")
+        if run.get("error"):
+            lines.append(f"   ошибка: {esc(str(run['error'])[:120])}")
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
+
+
+_ARTICLE_STATUS_RU = {
+    "keyword_filtered": "⚪ без признаков события",
+    "unmatched": "🔵 не сопоставлена с активом",
+    "irrelevant_global": "⚪ чужая (глобальный фид)",
+    "llm_analyzed": "🟡 LLM: не событие/отклонено",
+    "rejected": "🟡 LLM: отклонено",
+    "event_created": "🟢 создано событие",
+    "matched": "📥 в очереди на анализ",
+    "rematch_high": "📥 в очереди (rematch)",
+    "rematch_medium": "📥 в очереди (rematch)",
+    "ignored": "🚫 помечена нерелевантной",
+    "fetched": "…получена, ждёт обработки",
+}
+
+
+def format_articles(rows: list[dict]) -> str:
+    """Последние обработанные публикации для /articles."""
+    if not rows:
+        return "Обработанных публикаций пока нет."
+    blocks = ["📰 <b>Последние публикации в обработке</b>"]
+    for r in rows:
+        status = _ARTICLE_STATUS_RU.get(r.get("status") or "", r.get("status") or "—")
+        line1 = f"• {esc((r.get('title') or r.get('url') or '')[:90])}"
+        details = [esc(r.get("source") or "—"), status]
+        if r.get("best_asset"):
+            details.append(f"кандидат: {esc(r['best_asset'])} ({(r.get('best_score') or 0):.2f})")
+        blocks.append(line1 + "\n  " + " · ".join(details))
+    return "\n".join(blocks)
+
+
 def format_cost_report(costs: dict, model: str) -> str:
     """Отчёт /cost: стоимость сегодня и за месяц, запросы, экономия кэша."""
     def block(title: str, c: dict) -> str:

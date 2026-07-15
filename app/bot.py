@@ -19,6 +19,9 @@ HELP = """<b>Мониторинг корпоративных событий</b>
 
 /scan — проверить источники сейчас
 /fullscan — полная проверка, включая резервный поиск Tavily
+/reports on|off — отчёт после каждой плановой проверки (или только события)
+/scans [N] — история проверок
+/articles [N] — какие публикации бот скачал и как обработал
 /cost — стоимость LLM: сегодня, за месяц, экономия кэша
 /list — список активов
 /find ТЕКСТ — найти актив по имени, тикеру или алиасу
@@ -377,6 +380,49 @@ async def cost(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await guard(update): return
     await reply_html(update.effective_message,
                      formatters.format_cost_report(db.cost_stats(), settings.model))
+
+
+SCAN_REPORTS_KEY = "scan_reports"
+
+
+async def reports_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/reports on|off — присылать ли отчёт после каждой плановой проверки."""
+    if not await guard(update): return
+    arg = (context.args[0].lower() if context.args else "")
+    if arg in ("on", "вкл", "1"):
+        db.set_setting(SCAN_REPORTS_KEY, "1")
+        await update.effective_message.reply_text(
+            "✅ Отчёты о проверках включены: после каждой плановой проверки придёт сводка, "
+            "даже если новых событий нет. Выключить: /reports off")
+    elif arg in ("off", "выкл", "0"):
+        db.set_setting(SCAN_REPORTS_KEY, "0")
+        await update.effective_message.reply_text(
+            "🔕 Отчёты о проверках выключены: уведомления придут только при новых событиях. "
+            "Включить: /reports on")
+    else:
+        enabled = db.get_setting(SCAN_REPORTS_KEY, "0") == "1"
+        await update.effective_message.reply_text(
+            f"Отчёты о плановых проверках: {'включены' if enabled else 'выключены'}.\n"
+            "Переключить: /reports on — сводка после каждой проверки; "
+            "/reports off — только новые события.\nИстория проверок: /scans")
+
+
+async def scans_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/scans [N] — история проверок."""
+    if not await guard(update): return
+    limit = 15
+    if context.args and context.args[0].isdigit():
+        limit = min(int(context.args[0]), 50)
+    await reply_html(update.effective_message, formatters.format_scan_history(db.list_scan_runs(limit)))
+
+
+async def articles(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/articles [N] — последние публикации, которые бот скачал и обработал."""
+    if not await guard(update): return
+    limit = 15
+    if context.args and context.args[0].isdigit():
+        limit = min(int(context.args[0]), 50)
+    await reply_html(update.effective_message, formatters.format_articles(db.recent_articles(limit)))
 
 
 async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE):

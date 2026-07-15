@@ -17,6 +17,7 @@ from app.bot import (
     events_history, show_event, reply_html, send_html_message, cost,
     match_test, unmatched_cmd, match_cmd, ignore_publication, set_id_cmd, rematch,
     queue_cmd, delete_test, delete_event_cmd, add_user, remove_user, users,
+    reports_cmd, scans_history, articles,
 )
 from app.config import settings
 from app.formatters import MSK
@@ -80,17 +81,36 @@ async def event_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE) -> None:
+    from app.bot import SCAN_REPORTS_KEY
     if scan_lock.locked():
         log.warning("Scan skipped: previous scan is still running")
         return
+    reports_on = db.get_setting(SCAN_REPORTS_KEY, "0") == "1"
     async with scan_lock:
+        stats = ScanStats()
+        started_at = datetime.now(MSK)
         try:
             # По расписанию опрашиваются только источники с истёкшим refresh_interval.
-            events = await monitor.scan_all(due_only=True)
+            events = await monitor.scan_all(due_only=True, stats=stats)
         except Exception:
             log.exception("Scheduled scan failed")
+            if reports_on and settings.admin_telegram_id:
+                try:
+                    await send_html_message(context.application.bot, settings.admin_telegram_id,
+                                            "❌ Плановая проверка завершилась ошибкой. Подробности в логах.")
+                except Exception:
+                    log.exception("Не удалось отправить отчёт об ошибке")
             return
         await send_events(context.application, events)
+    # Отчёт о проверке (переключается командой /reports): события отправляются всегда,
+    # сводка — только если отчёты включены.
+    if reports_on and settings.admin_telegram_id:
+        summary = formatters.format_scan_summary(stats, started_at=started_at,
+                                                 finished_at=datetime.now(MSK), new_events=events)
+        try:
+            await send_html_message(context.application.bot, settings.admin_telegram_id, summary)
+        except Exception:
+            log.exception("Не удалось отправить отчёт о проверке")
 
 
 async def _run_manual_scan(update: Update, context: ContextTypes.DEFAULT_TYPE,
@@ -524,6 +544,9 @@ def main() -> None:
     app.add_handler(CommandHandler("adduser", add_user))
     app.add_handler(CommandHandler("removeuser", remove_user))
     app.add_handler(CommandHandler("users", users))
+    app.add_handler(CommandHandler("reports", reports_cmd))
+    app.add_handler(CommandHandler("scans", scans_history))
+    app.add_handler(CommandHandler("articles", articles))
     app.add_handler(CallbackQueryHandler(event_callback, pattern=r"^event:\d+$"))
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 

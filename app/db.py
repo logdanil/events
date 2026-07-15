@@ -916,6 +916,22 @@ def last_ok_run() -> dict[str, Any] | None:
         return dict(row) if row else None
 
 
+def list_scan_runs(limit: int = 15) -> list[dict[str, Any]]:
+    """История проверок (для /scans), новые первыми."""
+    with connect() as conn:
+        rows = conn.execute("SELECT * FROM scan_runs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def recent_articles(limit: int = 15) -> list[dict[str, Any]]:
+    """Последние обработанные публикации (для /articles): что бот смотрел и чем закончилось."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT url, title, source, status, llm_result, best_asset, best_score, processed_at "
+            "FROM processed_articles ORDER BY processed_at DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+
 def set_setting(key: str, value: str) -> None:
     with connect() as conn:
         conn.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
