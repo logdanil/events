@@ -417,12 +417,23 @@ async def scans_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def articles(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/articles [N] — последние публикации, которые бот скачал и обработал."""
+    """/articles [N] [источник] — последние обработанные публикации.
+    Примеры: /articles 30 · /articles SEC · /articles 20 tavily.
+    Повторные публикации из кэша не «всплывают»: показывается только новое."""
     if not await guard(update): return
-    limit = 15
-    if context.args and context.args[0].isdigit():
-        limit = min(int(context.args[0]), 50)
-    await reply_html(update.effective_message, formatters.format_articles(db.recent_articles(limit)))
+    limit, source_like = 15, None
+    args = list(context.args)
+    if args and args[0].isdigit():
+        limit = min(int(args.pop(0)), 50)
+    if args:
+        source_like = " ".join(args)
+    rows = db.recent_articles(limit, source_like=source_like)
+    by_source = db.articles_by_source(hours=24)
+    header = ""
+    if by_source:
+        top = " · ".join(f"{s}: {n}" for s, n in by_source[:6])
+        header = f"Новых за 24 ч по источникам: {formatters.esc(top)}\n\n"
+    await reply_html(update.effective_message, header + formatters.format_articles(rows))
 
 
 async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE):

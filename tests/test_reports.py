@@ -57,6 +57,12 @@ async def test_articles_listing(tmp_db):
     assert "Routine 10-Q filing" in text and "без признаков события" in text
     assert "SPY announces split" in text and "создано событие" in text
     assert "кандидат: SPYF" in text
+    assert "Новых за 24 ч по источникам:" in text
+    # Фильтр по источнику: /articles SEC показывает только SEC-записи.
+    update2 = make_update()
+    await bot.articles(update2, make_context(["SEC"]))
+    text2 = _text(update2)
+    assert "Routine 10-Q filing" in text2 and "SPY announces split" not in text2
 
 
 def test_format_scan_history_empty_and_error():

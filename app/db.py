@@ -923,13 +923,28 @@ def list_scan_runs(limit: int = 15) -> list[dict[str, Any]]:
         return [dict(r) for r in rows]
 
 
-def recent_articles(limit: int = 15) -> list[dict[str, Any]]:
+def recent_articles(limit: int = 15, source_like: str | None = None) -> list[dict[str, Any]]:
     """Последние обработанные публикации (для /articles): что бот смотрел и чем закончилось."""
+    where, params = "", []
+    if source_like:
+        where = "WHERE source LIKE ?"
+        params.append(f"%{source_like}%")
     with connect() as conn:
         rows = conn.execute(
-            "SELECT url, title, source, status, llm_result, best_asset, best_score, processed_at "
-            "FROM processed_articles ORDER BY processed_at DESC LIMIT ?", (limit,)).fetchall()
+            f"SELECT url, title, source, status, llm_result, best_asset, best_score, processed_at "
+            f"FROM processed_articles {where} ORDER BY processed_at DESC LIMIT ?",
+            (*params, limit)).fetchall()
         return [dict(r) for r in rows]
+
+
+def articles_by_source(hours: int = 24) -> list[tuple[str, int]]:
+    """Сводка: сколько новых публикаций обработано по источникам за период."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT COALESCE(source,'?') s, COUNT(*) n FROM processed_articles "
+            "WHERE processed_at >= datetime('now', ?) GROUP BY 1 ORDER BY n DESC",
+            (f"-{int(hours)} hours",)).fetchall()
+        return [(r["s"], r["n"]) for r in rows]
 
 
 def set_setting(key: str, value: str) -> None:
