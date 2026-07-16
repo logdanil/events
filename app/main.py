@@ -103,14 +103,16 @@ async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE) -> None:
             return
         await send_events(context.application, events)
     # Отчёт о проверке (переключается командой /reports): события отправляются всегда,
-    # сводка — только если отчёты включены.
-    if reports_on and settings.admin_telegram_id:
+    # сводка — только если отчёты включены. Получают все: администратор и подписчики.
+    if reports_on:
+        from app.bot import notification_recipients
         summary = formatters.format_scan_summary(stats, started_at=started_at,
                                                  finished_at=datetime.now(MSK), new_events=events)
-        try:
-            await send_html_message(context.application.bot, settings.admin_telegram_id, summary)
-        except Exception:
-            log.exception("Не удалось отправить отчёт о проверке")
+        for chat_id in notification_recipients():
+            try:
+                await send_html_message(context.application.bot, chat_id, summary)
+            except Exception:
+                log.warning("Не удалось отправить отчёт о проверке получателю %s", chat_id)
 
 
 async def _run_manual_scan(update: Update, context: ContextTypes.DEFAULT_TYPE,

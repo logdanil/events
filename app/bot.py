@@ -385,6 +385,17 @@ async def cost(update: Update, context: ContextTypes.DEFAULT_TYPE):
 SCAN_REPORTS_KEY = "scan_reports"
 
 
+def notification_recipients() -> list[int]:
+    """Все получатели рассылок: администратор + подписчики, без дублей."""
+    recipients = []
+    if settings.admin_telegram_id:
+        recipients.append(settings.admin_telegram_id)
+    for s in db.list_subscribers():
+        if s["chat_id"] not in recipients:
+            recipients.append(s["chat_id"])
+    return recipients
+
+
 async def reports_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/reports on|off — присылать ли отчёт после каждой плановой проверки."""
     if not await guard(update): return
@@ -392,8 +403,8 @@ async def reports_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if arg in ("on", "вкл", "1"):
         db.set_setting(SCAN_REPORTS_KEY, "1")
         await update.effective_message.reply_text(
-            "✅ Отчёты о проверках включены: после каждой плановой проверки придёт сводка, "
-            "даже если новых событий нет. Выключить: /reports off")
+            "✅ Отчёты о проверках включены: после каждой плановой проверки сводка придёт вам "
+            "и всем подписчикам, даже если новых событий нет. Выключить: /reports off")
     elif arg in ("off", "выкл", "0"):
         db.set_setting(SCAN_REPORTS_KEY, "0")
         await update.effective_message.reply_text(

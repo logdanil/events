@@ -73,6 +73,16 @@ def test_format_scan_history_empty_and_error():
     assert "❌ #7" in text and "ошибка: boom" in text and "30 c" in text
 
 
+def test_notification_recipients_admin_plus_subscribers(tmp_db):
+    # Админ всегда первый; подписчики добавляются без дублей.
+    assert bot.notification_recipients() == [111]
+    db.add_subscriber(555, "Иван")
+    db.add_subscriber(777)
+    assert bot.notification_recipients() == [111, 555, 777]
+    db.add_subscriber(111)  # админ подписался сам на себя — не дублируется
+    assert bot.notification_recipients() == [111, 555, 777]
+
+
 @pytest.mark.asyncio
 async def test_reports_denied_for_non_admin(tmp_db):
     db.add_subscriber(555)
