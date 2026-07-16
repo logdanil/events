@@ -148,6 +148,18 @@ async def _run_manual_scan(update: Update, context: ContextTypes.DEFAULT_TYPE,
         await progress_message.edit_text(summary, parse_mode="HTML")
     except Exception:
         await progress_message.edit_text(formatters.strip_html(summary))
+    # При включённых отчётах (/reports on) сводку ручной проверки получают
+    # и остальные: подписчики + админ, кроме чата, где команда была запущена.
+    from app.bot import SCAN_REPORTS_KEY, notification_recipients
+    if db.get_setting(SCAN_REPORTS_KEY, "0") == "1":
+        invoker = update.effective_user.id if update.effective_user else None
+        for chat_id in notification_recipients():
+            if chat_id == invoker:
+                continue
+            try:
+                await send_html_message(context.application.bot, chat_id, summary)
+            except Exception:
+                log.warning("Не удалось отправить сводку проверки получателю %s", chat_id)
 
 
 async def manual_scan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
