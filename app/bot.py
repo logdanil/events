@@ -43,6 +43,7 @@ HELP = """<b>Мониторинг корпоративных событий</b>
 /adduser ID [имя] — подписать на уведомления (только чтение)
 /removeuser ID — отписать
 /users — список подписчиков
+/testbroadcast — тестовая рассылка всем с отчётом о доставке
 
 Диагностика и сопоставление:
 /debugscan АКТИВ — поэтапная проверка одного актива
@@ -411,7 +412,7 @@ async def reports_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🔕 Отчёты о проверках выключены: уведомления придут только при новых событиях. "
             "Включить: /reports on")
     else:
-        enabled = db.get_setting(SCAN_REPORTS_KEY, "0") == "1"
+        enabled = db.get_setting(SCAN_REPORTS_KEY, "1") == "1"
         await update.effective_message.reply_text(
             f"Отчёты о плановых проверках: {'включены' if enabled else 'выключены'}.\n"
             "Переключить: /reports on — сводка после каждой проверки; "

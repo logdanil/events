@@ -85,7 +85,7 @@ async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE) -> None:
     if scan_lock.locked():
         log.warning("Scan skipped: previous scan is still running")
         return
-    reports_on = db.get_setting(SCAN_REPORTS_KEY, "0") == "1"
+    reports_on = db.get_setting(SCAN_REPORTS_KEY, "1") == "1"
     async with scan_lock:
         stats = ScanStats()
         started_at = datetime.now(MSK)
@@ -151,7 +151,7 @@ async def _run_manual_scan(update: Update, context: ContextTypes.DEFAULT_TYPE,
     # При включённых отчётах (/reports on) сводку ручной проверки получают
     # и остальные: подписчики + админ, кроме чата, где команда была запущена.
     from app.bot import SCAN_REPORTS_KEY, notification_recipients
-    if db.get_setting(SCAN_REPORTS_KEY, "0") == "1":
+    if db.get_setting(SCAN_REPORTS_KEY, "1") == "1":
         invoker = update.effective_user.id if update.effective_user else None
         for chat_id in notification_recipients():
             if chat_id == invoker:
@@ -296,6 +296,29 @@ async def pipe_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await _say(msg, "\n".join(stages))
     await reply_html(msg, formatters.format_event_short(event, asset),
                      reply_markup=formatters.event_details_button(row_id))
+
+
+async def test_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/testbroadcast — тестовое сообщение всем получателям с отчётом о доставке."""
+    from app.bot import guard, notification_recipients
+    if not await guard(update):
+        return
+    recipients = notification_recipients()
+    results = []
+    for chat_id in recipients:
+        try:
+            await context.application.bot.send_message(
+                chat_id=chat_id,
+                text="🔧 Тестовая рассылка Corporate Events Monitor: если вы видите это "
+                     "сообщение, уведомления о событиях и отчёты до вас доходят.")
+            results.append(f"✅ {chat_id} — доставлено")
+        except Exception as exc:
+            results.append(f"❌ {chat_id} — {type(exc).__name__}: {str(exc)[:80]}")
+    await update.effective_message.reply_text(
+        f"Тестовая рассылка ({len(recipients)} получателей: админ + подписчики):\n"
+        + "\n".join(results)
+        + "\n\nЕсли получателей меньше, чем ожидали — проверьте /users: подписчики "
+          "хранятся в базе того сервера, где работает бот.")
 
 
 def _redact(text: str) -> str:
@@ -559,6 +582,7 @@ def main() -> None:
     app.add_handler(CommandHandler("removeuser", remove_user))
     app.add_handler(CommandHandler("users", users))
     app.add_handler(CommandHandler("reports", reports_cmd))
+    app.add_handler(CommandHandler("testbroadcast", test_broadcast))
     app.add_handler(CommandHandler("scans", scans_history))
     app.add_handler(CommandHandler("articles", articles))
     app.add_handler(CallbackQueryHandler(event_callback, pattern=r"^event:\d+$"))

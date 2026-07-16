@@ -17,7 +17,7 @@ def _text(update) -> str:
 async def test_reports_toggle(tmp_db):
     update = make_update()
     await bot.reports_cmd(update, make_context([]))
-    assert "выключены" in _text(update)
+    assert "включены" in _text(update), "отчёты о проверках включены по умолчанию"
     update2 = make_update()
     await bot.reports_cmd(update2, make_context(["on"]))
     assert db.get_setting(bot.SCAN_REPORTS_KEY) == "1"
