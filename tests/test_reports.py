@@ -84,6 +84,69 @@ def test_notification_recipients_admin_plus_subscribers(tmp_db):
 
 
 @pytest.mark.asyncio
+async def test_send_html_message_silent_flag(tmp_db):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    fake_bot = SimpleNamespace(send_message=AsyncMock())
+    await bot.send_html_message(fake_bot, 111, "<b>отчёт без событий</b>", silent=True)
+    assert fake_bot.send_message.await_args.kwargs["disable_notification"] is True
+    await bot.send_html_message(fake_bot, 111, "<b>событие!</b>")
+    assert fake_bot.send_message.await_args.kwargs["disable_notification"] is False
+
+
+def test_daily_summary_data_and_format(tmp_db):
+    db.upsert_asset("SPYF", "SPDR S&P 500 ETF Trust (SPY)", "ETF")
+    db.remember_article("https://x.com/1", matcher.url_hash("https://x.com/1"), None, None,
+                        "SEC", "skipped:no_keywords", status="keyword_filtered", title="Routine filing")
+    db.remember_article("https://x.com/2", matcher.url_hash("https://x.com/2"), None, None,
+                        "Tavily", "rejected:не событие", status="rejected", title="Market commentary")
+    db.save_event({"fingerprint": "fp-1", "asset_code": "SPYF", "event_type": "stock_split",
+                   "title": "Split announced", "summary_ru": "x", "source_url": "https://x.com/3",
+                   "confidence": 0.9})
+    data = db.daily_summary_data()
+    assert data["status_counts"]["keyword_filtered"] == 1
+    assert len(data["llm_seen"]) == 1 and data["llm_seen"][0]["title"] == "Market commentary"
+    assert len(data["events"]) == 1
+
+    text = formatters.format_daily_summary(data, narrative="Спокойный день, одно событие по SPYF.")
+    assert "🗞 <b>Итоги дня мониторинга</b>" in text
+    assert "Спокойный день, одно событие по SPYF." in text
+    assert "🔴 SPYF — Дробление акций" in text
+    assert "• прошло до Gemini: 1" in text
+    assert "• без признаков события: 1" in text
+    # Без narrative (Gemini недоступен) — только цифры, без падения.
+    assert "Цифры за 24 часа" in formatters.format_daily_summary(data, None)
+
+
+@pytest.mark.asyncio
+async def test_build_daily_summary_with_fake_llm(tmp_db, monkeypatch):
+    from app import main as app_main
+    from app.llm import LLMUsage
+
+    class FakeLLM:
+        name, model = "fake", "fake-1"
+        async def generate(self, prompt, max_output_tokens=1024):
+            assert "Данные дня" in prompt
+            return "Сводка от модели.", LLMUsage(calls=1, input_tokens=10, output_tokens=5, cost_usd=0.001)
+
+    monkeypatch.setattr(app_main.monitor, "llm", FakeLLM())
+    text = await app_main.build_daily_summary()
+    assert "Сводка от модели." in text and "Цифры за 24 часа" in text
+    assert db.cost_stats()["today"]["calls"] == 1, "использование записано в /cost"
+
+
+@pytest.mark.asyncio
+async def test_summary_toggle(tmp_db):
+    from app import main as app_main
+    update = make_update()
+    await app_main.summary_cmd(update, make_context(["off"]))
+    assert db.get_setting(app_main.DAILY_SUMMARY_KEY) == "0"
+    update2 = make_update()
+    await app_main.summary_cmd(update2, make_context(["on"]))
+    assert db.get_setting(app_main.DAILY_SUMMARY_KEY) == "1"
+
+
+@pytest.mark.asyncio
 async def test_reports_denied_for_non_admin(tmp_db):
     db.add_subscriber(555)
     for handler in (bot.reports_cmd, bot.scans_history, bot.articles):

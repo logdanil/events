@@ -20,6 +20,7 @@ HELP = """<b>Мониторинг корпоративных событий</b>
 /scan — проверить источники сейчас
 /fullscan — полная проверка, включая резервный поиск Tavily
 /reports on|off — отчёт после каждой плановой проверки (или только события)
+/summary — сводка дня сейчас; /summary on|off — ежедневно в 19:00 МСК
 /scans [N] — история проверок
 /articles [N] — какие публикации бот скачал и как обработал
 /cost — стоимость LLM: сегодня, за месяц, экономия кэша
@@ -139,18 +140,22 @@ async def reply_html(message, text: str, reply_markup=None) -> None:
             await message.reply_text(formatters.strip_html(chunk), disable_web_page_preview=True, reply_markup=markup)
 
 
-async def send_html_message(bot, chat_id: int, text: str, reply_markup=None) -> None:
-    """То же, что reply_html, но через bot.send_message (для плановых уведомлений)."""
+async def send_html_message(bot, chat_id: int, text: str, reply_markup=None,
+                            silent: bool = False) -> None:
+    """То же, что reply_html, но через bot.send_message (для плановых уведомлений).
+    silent=True — сообщение приходит без звука (для рутинных отчётов без событий)."""
     chunks = formatters.split_html(text)
     for i, chunk in enumerate(chunks):
         markup = reply_markup if i == len(chunks) - 1 else None
         try:
             await bot.send_message(chat_id=chat_id, text=chunk, parse_mode="HTML",
-                                   disable_web_page_preview=True, reply_markup=markup)
+                                   disable_web_page_preview=True, reply_markup=markup,
+                                   disable_notification=silent)
         except telegram.error.BadRequest:
             log.warning("HTML-отправка не удалась, отправляю обычным текстом: %.120s", chunk)
             await bot.send_message(chat_id=chat_id, text=formatters.strip_html(chunk),
-                                   disable_web_page_preview=True, reply_markup=markup)
+                                   disable_web_page_preview=True, reply_markup=markup,
+                                   disable_notification=silent)
 
 
 async def resolve_or_reply(update: Update, text: str) -> dict | None:

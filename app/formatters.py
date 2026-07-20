@@ -441,6 +441,38 @@ def format_articles(rows: list[dict]) -> str:
     return "\n".join(blocks)
 
 
+def format_daily_summary(data: dict, narrative: str | None = None) -> str:
+    """Ежедневное саммари: связный текст (Gemini) + локальные цифры дня.
+    При недоступности модели narrative=None — остаются только факты."""
+    now = datetime.now(MSK)
+    counts = data.get("status_counts", {})
+    total = sum(counts.values())
+    llm_count = sum(counts.get(s, 0) for s in ("llm_analyzed", "rejected", "event_created"))
+    lines = [f"🗞 <b>Итоги дня мониторинга</b> — {now.day} {MONTHS_RU[now.month - 1]} {now.year}", ""]
+    if narrative:
+        lines += [esc(narrative.strip()), ""]
+    events = data.get("events", [])
+    if events:
+        lines.append("<b>События за 24 часа</b>")
+        for e in events:
+            severity = classify_severity(e.get("event_type"), e.get("severity"))
+            type_ru = event_type_ru(e.get("event_type"))
+            lines.append(f"{SEVERITY_EMOJI[severity]} {esc(e.get('asset_code',''))} — {esc(type_ru)}"
+                         + (f" · /event {e['id']}" if e.get("id") else ""))
+        lines.append("")
+    lines += [
+        "<b>Цифры за 24 часа</b>",
+        f"• проверок выполнено: {data.get('scans', 0)}",
+        f"• новых публикаций обработано: {total}",
+        f"• прошло до Gemini: {llm_count}",
+        f"• событий создано: {len(events)}",
+        f"• без признаков события: {counts.get('keyword_filtered', 0)}",
+        f"• не сопоставлено с активами: {counts.get('unmatched', 0) + counts.get('irrelevant_global', 0)}",
+        f"• стоимость LLM за день: ${data.get('cost_today', {}).get('cost_usd', 0):.4f}",
+    ]
+    return "\n".join(lines)
+
+
 def format_cost_report(costs: dict, model: str) -> str:
     """Отчёт /cost: стоимость сегодня и за месяц, запросы, экономия кэша."""
     def block(title: str, c: dict) -> str:

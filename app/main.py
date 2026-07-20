@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, time as dt_time
 from pathlib import Path
 
 from telegram import Update
@@ -110,7 +110,9 @@ async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE) -> None:
                                                  finished_at=datetime.now(MSK), new_events=events)
         for chat_id in notification_recipients():
             try:
-                await send_html_message(context.application.bot, chat_id, summary)
+                # Отчёт без новых событий приходит без звука; со звуком — только события.
+                await send_html_message(context.application.bot, chat_id, summary,
+                                        silent=not events)
             except Exception:
                 log.warning("Не удалось отправить отчёт о проверке получателю %s", chat_id)
 
@@ -157,7 +159,8 @@ async def _run_manual_scan(update: Update, context: ContextTypes.DEFAULT_TYPE,
             if chat_id == invoker:
                 continue
             try:
-                await send_html_message(context.application.bot, chat_id, summary)
+                await send_html_message(context.application.bot, chat_id, summary,
+                                        silent=not events)
             except Exception:
                 log.warning("Не удалось отправить сводку проверки получателю %s", chat_id)
 
@@ -296,6 +299,81 @@ async def pipe_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await _say(msg, "\n".join(stages))
     await reply_html(msg, formatters.format_event_short(event, asset),
                      reply_markup=formatters.event_details_button(row_id))
+
+
+DAILY_SUMMARY_KEY = "daily_summary"
+
+_SUMMARY_PROMPT = """Составь краткую сводку дня для команды мониторинга корпоративных событий.
+Пиши по-русски, деловым языком, 5–10 коротких строк обычного текста (без markdown и HTML).
+Структура: 1) общая картина дня одной фразой; 2) главные темы публикаций, которые анализировались
+(сгруппируй похожие); 3) события, если были; 4) что было отклонено и почему (одной-двумя фразами);
+5) на что обратить внимание завтра, если есть кандидаты на грани порога.
+Только факты из данных, ничего не выдумывай. Данные дня (JSON):
+"""
+
+
+async def build_daily_summary() -> str:
+    """Собирает саммари дня: цифры локально, связный текст — Gemini (с фолбэком без него)."""
+    data = db.daily_summary_data(hours=24)
+    narrative = None
+    try:
+        prompt_payload = {
+            "проверок": data["scans"],
+            "статусы_публикаций": data["status_counts"],
+            "анализировала_модель": [
+                {"заголовок": (a.get("title") or "")[:120], "источник": a.get("source"),
+                 "актив": a.get("best_asset"), "итог": a.get("llm_result")}
+                for a in data["llm_seen"]],
+            "события": [
+                {"актив": e.get("asset_code"), "тип": e.get("event_type"),
+                 "заголовок": (e.get("title") or "")[:120]} for e in data["events"]],
+            "кандидаты_на_грани": [
+                {"заголовок": (a.get("title") or "")[:100], "актив": a.get("best_asset"),
+                 "score": a.get("best_score")} for a in data["near_miss"]],
+        }
+        narrative, usage = await monitor.llm.generate(
+            _SUMMARY_PROMPT + json.dumps(prompt_payload, ensure_ascii=False))
+        db.record_llm_usage(monitor.llm.name, monitor.llm.model, usage.calls,
+                            usage.input_tokens, usage.output_tokens, usage.cost_usd, 0)
+    except Exception:
+        log.exception("Gemini-саммари не удалось, отправляю только цифры")
+    return formatters.format_daily_summary(data, narrative)
+
+
+async def send_daily_summary(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Ежедневная сводка в 19:00 МСК всем получателям."""
+    from app.bot import notification_recipients
+    if db.get_setting(DAILY_SUMMARY_KEY, "1") != "1":
+        return
+    summary = await build_daily_summary()
+    for chat_id in notification_recipients():
+        try:
+            await send_html_message(context.application.bot, chat_id, summary)
+        except Exception:
+            log.warning("Не удалось отправить дневное саммари получателю %s", chat_id)
+
+
+async def summary_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/summary — сводка дня сейчас; /summary on|off — ежедневная рассылка в 19:00 МСК."""
+    from app.bot import guard
+    if not await guard(update):
+        return
+    arg = (context.args[0].lower() if context.args else "")
+    if arg in ("on", "вкл"):
+        db.set_setting(DAILY_SUMMARY_KEY, "1")
+        await update.effective_message.reply_text("✅ Ежедневное саммари в 19:00 МСК включено (для всех получателей).")
+        return
+    if arg in ("off", "выкл"):
+        db.set_setting(DAILY_SUMMARY_KEY, "0")
+        await update.effective_message.reply_text("🔕 Ежедневное саммари выключено. Включить: /summary on")
+        return
+    progress = await update.effective_message.reply_text("Готовлю сводку дня…")
+    text = await build_daily_summary()
+    try:
+        await progress.delete()
+    except Exception:
+        pass
+    await reply_html(update.effective_message, text)
 
 
 async def test_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -525,7 +603,8 @@ async def post_init(app: Application) -> None:
         return
     interval = int(db.get_setting("interval_minutes", str(settings.scan_interval_minutes)))
     app.job_queue.run_repeating(scheduled_scan, interval=interval * 60, first=interval * 60, name="scheduled_scan")
-    log.info("Bot initialized with %s minute interval", interval)
+    app.job_queue.run_daily(send_daily_summary, time=dt_time(19, 0, tzinfo=MSK), name="daily_summary")
+    log.info("Bot initialized with %s minute interval; daily summary at 19:00 MSK", interval)
 
 
 def validate_settings() -> None:
@@ -583,6 +662,7 @@ def main() -> None:
     app.add_handler(CommandHandler("users", users))
     app.add_handler(CommandHandler("reports", reports_cmd))
     app.add_handler(CommandHandler("testbroadcast", test_broadcast))
+    app.add_handler(CommandHandler("summary", summary_cmd))
     app.add_handler(CommandHandler("scans", scans_history))
     app.add_handler(CommandHandler("articles", articles))
     app.add_handler(CallbackQueryHandler(event_callback, pattern=r"^event:\d+$"))

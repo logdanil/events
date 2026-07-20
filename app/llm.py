@@ -106,6 +106,10 @@ class LLMProvider(ABC):
         {"index", "title", "published_at", "source", "url", "text"}.
         Возвращает (список классификаций c полем index, использование)."""
 
+    async def generate(self, prompt: str, max_output_tokens: int = 1024) -> tuple[str, LLMUsage]:
+        """Свободная генерация текста (используется только для ежедневного саммари)."""
+        raise NotImplementedError
+
 
 class GeminiProvider(LLMProvider):
     name = "gemini"
@@ -166,6 +170,32 @@ class GeminiProvider(LLMProvider):
         log.info("Gemini: %d публикаций → %d классификаций, %d+%d токенов, $%.5f",
                  len(items), len(results), input_tokens, output_tokens, usage.cost_usd)
         return results, usage
+
+    async def generate(self, prompt: str, max_output_tokens: int = 1024) -> tuple[str, LLMUsage]:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+        payload = {
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.3, "maxOutputTokens": max_output_tokens,
+                                 "thinkingConfig": {"thinkingBudget": 0}},
+        }
+
+        async def call():
+            response = await self._client.post(url, json=payload,
+                                               headers={"x-goog-api-key": self.api_key})
+            response.raise_for_status()
+            return response.json()
+
+        data = await with_retries(call, what="Gemini generate")
+        text = "".join(
+            part.get("text", "")
+            for cand in data.get("candidates", [])[:1]
+            for part in cand.get("content", {}).get("parts", []))
+        meta = data.get("usageMetadata", {})
+        input_tokens = int(meta.get("promptTokenCount", 0))
+        output_tokens = int(meta.get("candidatesTokenCount", 0)) + int(meta.get("thoughtsTokenCount", 0))
+        usage = LLMUsage(calls=1, input_tokens=input_tokens, output_tokens=output_tokens,
+                         cost_usd=self._cost(input_tokens, output_tokens))
+        return text.strip(), usage
 
     async def aclose(self) -> None:
         await self._client.aclose()

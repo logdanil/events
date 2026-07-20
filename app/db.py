@@ -937,6 +937,35 @@ def recent_articles(limit: int = 15, source_like: str | None = None) -> list[dic
         return [dict(r) for r in rows]
 
 
+def daily_summary_data(hours: int = 24) -> dict[str, Any]:
+    """Данные для ежедневного саммари: что было проанализировано за период,
+    включая публикации, не прошедшие фильтры."""
+    since = f"-{int(hours)} hours"
+    with connect() as conn:
+        status_counts = {r["s"]: r["n"] for r in conn.execute(
+            "SELECT COALESCE(status,'fetched') s, COUNT(*) n FROM processed_articles "
+            "WHERE processed_at >= datetime('now', ?) GROUP BY 1", (since,)).fetchall()}
+        llm_seen = [dict(r) for r in conn.execute(
+            "SELECT title, source, status, llm_result, best_asset FROM processed_articles "
+            "WHERE processed_at >= datetime('now', ?) "
+            "AND status IN ('llm_analyzed','rejected','event_created') "
+            "ORDER BY processed_at DESC LIMIT 60", (since,)).fetchall()]
+        near_miss = [dict(r) for r in conn.execute(
+            "SELECT title, best_asset, best_score FROM processed_articles "
+            "WHERE processed_at >= datetime('now', ?) AND status='unmatched' "
+            "AND best_score >= 0.4 ORDER BY best_score DESC LIMIT 15", (since,)).fetchall()]
+        scans = conn.execute("SELECT COUNT(*) FROM scan_runs WHERE started_at >= datetime('now', ?)",
+                             (since,)).fetchone()[0]
+    return {
+        "status_counts": status_counts,
+        "llm_seen": llm_seen,
+        "near_miss": near_miss,
+        "events": events_since_hours(hours),
+        "scans": scans,
+        "cost_today": cost_stats()["today"],
+    }
+
+
 def articles_by_source(hours: int = 24) -> list[tuple[str, int]]:
     """Сводка: сколько новых публикаций обработано по источникам за период."""
     with connect() as conn:
