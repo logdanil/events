@@ -331,8 +331,12 @@ def event_details_button(event_id: int) -> InlineKeyboardMarkup:
 def format_scan_summary(stats, started_at: datetime | None = None,
                         finished_at: datetime | None = None,
                         new_events: list[dict] | None = None) -> str:
-    """Итог проверки для /scan: полная воронка всегда, судьба каждого этапа объяснена."""
-    lines = ["✅ <b>Проверка завершена</b>", ""]
+    """Итог проверки для /scan: полная воронка всегда, судьба каждого этапа объяснена.
+    С событиями — «сигнальный» заголовок (такое сообщение бот закрепляет в чате)."""
+    if new_events:
+        lines = ["🚨 <b>Последние обнаруженные события</b>", ""]
+    else:
+        lines = ["✅ <b>Проверка завершена</b>", ""]
     if started_at and finished_at:
         lines.append(f"<b>Период:</b> {started_at.astimezone(MSK):%H:%M}–{finished_at.astimezone(MSK):%H:%M} МСК")
     lines += [

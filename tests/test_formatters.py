@@ -135,7 +135,9 @@ def test_scan_summary_with_events():
     events = [{"asset_code": "SPYF", "event_type": "stock_split"},
               {"asset_code": "ALIBABA", "event_type": "tender_offer"}]
     text = formatters.format_scan_summary(stats, new_events=events)
-    assert "✅ <b>Проверка завершена</b>" in text
+    assert "🚨 <b>Последние обнаруженные события</b>" in text, \
+        "отчёт с событиями получает сигнальный заголовок (и закрепляется)"
+    assert "Проверка завершена" not in text
     assert "• проверено источников: 42" in text
     assert "• скачано публикаций: 142" in text
     assert "├ RSS: 100" in text and "├ HTML: 40" in text and "└ Tavily: 2" in text

@@ -80,6 +80,24 @@ async def event_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await reply_html(query.message, formatters.format_event_full(e, db.get_asset(e["asset_code"])))
 
 
+async def _pin_report(bot, chat_id: int, message_id: int) -> None:
+    """Закрепляет отчёт с событиями; предыдущий закреп бота снимается,
+    чтобы наверху чата всегда висело самое свежее «внимание, события»."""
+    key = f"pinned_report_{chat_id}"
+    previous = db.get_setting(key, "")
+    if previous:
+        try:
+            await bot.unpin_chat_message(chat_id=chat_id, message_id=int(previous))
+        except Exception:
+            pass  # старый закреп мог быть снят вручную — не мешаем
+    try:
+        await bot.pin_chat_message(chat_id=chat_id, message_id=message_id,
+                                   disable_notification=True)
+        db.set_setting(key, str(message_id))
+    except Exception:
+        log.warning("Не удалось закрепить сообщение в чате %s", chat_id)
+
+
 async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE) -> None:
     from app.bot import SCAN_REPORTS_KEY
     if scan_lock.locked():
@@ -111,8 +129,10 @@ async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE) -> None:
         for chat_id in notification_recipients():
             try:
                 # Отчёт без новых событий приходит без звука; со звуком — только события.
-                await send_html_message(context.application.bot, chat_id, summary,
-                                        silent=not events)
+                message = await send_html_message(context.application.bot, chat_id, summary,
+                                                  silent=not events)
+                if events and message is not None:
+                    await _pin_report(context.application.bot, chat_id, message.message_id)
             except Exception:
                 log.warning("Не удалось отправить отчёт о проверке получателю %s", chat_id)
 
@@ -150,6 +170,9 @@ async def _run_manual_scan(update: Update, context: ContextTypes.DEFAULT_TYPE,
         await progress_message.edit_text(summary, parse_mode="HTML")
     except Exception:
         await progress_message.edit_text(formatters.strip_html(summary))
+    if events:
+        await _pin_report(context.application.bot, progress_message.chat_id,
+                          progress_message.message_id)
     # При включённых отчётах (/reports on) сводку ручной проверки получают
     # и остальные: подписчики + админ, кроме чата, где команда была запущена.
     from app.bot import SCAN_REPORTS_KEY, notification_recipients
@@ -159,8 +182,10 @@ async def _run_manual_scan(update: Update, context: ContextTypes.DEFAULT_TYPE,
             if chat_id == invoker:
                 continue
             try:
-                await send_html_message(context.application.bot, chat_id, summary,
-                                        silent=not events)
+                message = await send_html_message(context.application.bot, chat_id, summary,
+                                                  silent=not events)
+                if events and message is not None:
+                    await _pin_report(context.application.bot, chat_id, message.message_id)
             except Exception:
                 log.warning("Не удалось отправить сводку проверки получателю %s", chat_id)
 

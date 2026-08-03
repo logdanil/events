@@ -141,21 +141,26 @@ async def reply_html(message, text: str, reply_markup=None) -> None:
 
 
 async def send_html_message(bot, chat_id: int, text: str, reply_markup=None,
-                            silent: bool = False) -> None:
+                            silent: bool = False):
     """То же, что reply_html, но через bot.send_message (для плановых уведомлений).
-    silent=True — сообщение приходит без звука (для рутинных отчётов без событий)."""
+    silent=True — сообщение приходит без звука (для рутинных отчётов без событий).
+    Возвращает первое отправленное сообщение (для закрепления)."""
     chunks = formatters.split_html(text)
+    first_message = None
     for i, chunk in enumerate(chunks):
         markup = reply_markup if i == len(chunks) - 1 else None
         try:
-            await bot.send_message(chat_id=chat_id, text=chunk, parse_mode="HTML",
-                                   disable_web_page_preview=True, reply_markup=markup,
-                                   disable_notification=silent)
+            message = await bot.send_message(chat_id=chat_id, text=chunk, parse_mode="HTML",
+                                             disable_web_page_preview=True, reply_markup=markup,
+                                             disable_notification=silent)
         except telegram.error.BadRequest:
             log.warning("HTML-отправка не удалась, отправляю обычным текстом: %.120s", chunk)
-            await bot.send_message(chat_id=chat_id, text=formatters.strip_html(chunk),
-                                   disable_web_page_preview=True, reply_markup=markup,
-                                   disable_notification=silent)
+            message = await bot.send_message(chat_id=chat_id, text=formatters.strip_html(chunk),
+                                             disable_web_page_preview=True, reply_markup=markup,
+                                             disable_notification=silent)
+        if first_message is None:
+            first_message = message
+    return first_message
 
 
 async def resolve_or_reply(update: Update, text: str) -> dict | None:

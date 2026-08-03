@@ -84,6 +84,34 @@ def test_notification_recipients_admin_plus_subscribers(tmp_db):
 
 
 @pytest.mark.asyncio
+async def test_pin_report_replaces_previous_pin(tmp_db):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from app import main as app_main
+    fake_bot = SimpleNamespace(pin_chat_message=AsyncMock(), unpin_chat_message=AsyncMock())
+    await app_main._pin_report(fake_bot, 111, 42)
+    fake_bot.pin_chat_message.assert_awaited_once()
+    assert fake_bot.pin_chat_message.await_args.kwargs["message_id"] == 42
+    assert fake_bot.pin_chat_message.await_args.kwargs["disable_notification"] is True
+    fake_bot.unpin_chat_message.assert_not_awaited()
+    assert db.get_setting("pinned_report_111") == "42"
+    # Следующий закреп снимает предыдущий.
+    await app_main._pin_report(fake_bot, 111, 77)
+    assert fake_bot.unpin_chat_message.await_args.kwargs["message_id"] == 42
+    assert db.get_setting("pinned_report_111") == "77"
+
+
+@pytest.mark.asyncio
+async def test_send_html_message_returns_message(tmp_db):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    sent = SimpleNamespace(message_id=123)
+    fake_bot = SimpleNamespace(send_message=AsyncMock(return_value=sent))
+    message = await bot.send_html_message(fake_bot, 111, "<b>отчёт</b>")
+    assert message is sent, "send_html_message возвращает сообщение для закрепления"
+
+
+@pytest.mark.asyncio
 async def test_send_html_message_silent_flag(tmp_db):
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
