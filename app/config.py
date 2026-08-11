@@ -21,7 +21,10 @@ class Settings:
     timezone: str = os.getenv("TIMEZONE", "Europe/Amsterdam")
     max_search_results: int = int(os.getenv("MAX_SEARCH_RESULTS", "6"))
     lookback_days: int = int(os.getenv("LOOKBACK_DAYS", "3"))
-    # Email-дублирование уведомлений (необязательно): SMTP любого провайдера.
+    # Email-дублирование уведомлений (необязательно).
+    # Приоритет — SendGrid HTTP API (Railway блокирует исходящий SMTP);
+    # SMTP-настройки работают при локальном запуске и на хостингах без блокировки.
+    sendgrid_api_key: str = os.getenv("SENDGRID_API_KEY", "")
     smtp_host: str = os.getenv("SMTP_HOST", "")
     smtp_port: int = int(os.getenv("SMTP_PORT", "465"))
     smtp_user: str = os.getenv("SMTP_USER", "")

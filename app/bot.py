@@ -416,8 +416,8 @@ async def add_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = " ".join(args[1:]) or None
     added = db.add_email_recipient(email_addr, name)
     note = "" if emailer.is_configured() else (
-        "\n⚠️ SMTP не настроен: письма не будут отправляться, пока в .env не заданы "
-        "SMTP_HOST, SMTP_USER и SMTP_PASSWORD.")
+        "\n⚠️ Почта не настроена: задайте SENDGRID_API_KEY + EMAIL_FROM (для Railway) "
+        "либо SMTP_HOST/SMTP_USER/SMTP_PASSWORD (локально) — иначе письма не отправятся.")
     await update.effective_message.reply_text(
         (f"Адрес {email_addr} добавлен: события и дневное саммари будут дублироваться на почту."
          if added else f"Адрес {email_addr} уже в списке.") + note)
@@ -455,8 +455,9 @@ async def test_email_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from app import emailer
     if not emailer.is_configured():
         await update.effective_message.reply_text(
-            "SMTP не настроен. Добавьте в .env: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD "
-            "(для Gmail/Яндекса — пароль приложения) и перезапустите бота.")
+            "Почта не настроена. На Railway используйте SendGrid (SMTP там заблокирован): "
+            "переменные SENDGRID_API_KEY + EMAIL_FROM (верифицированный отправитель). "
+            "Локально можно SMTP: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD.")
         return
     recipients = db.list_email_recipients()
     if not recipients:

@@ -58,6 +58,48 @@ async def test_send_email_calls_smtp(tmp_db, monkeypatch):
     assert captured["plain"] == "Событие\nстрока"
 
 
+def test_sendgrid_configured_requires_from(monkeypatch):
+    monkeypatch.setattr(emailer, "settings", dataclasses.replace(
+        settings, sendgrid_api_key="SG.x", email_from="", smtp_host=""))
+    assert emailer.is_configured() is False, "SendGrid без верифицированного from не считается настроенным"
+    monkeypatch.setattr(emailer, "settings", dataclasses.replace(
+        settings, sendgrid_api_key="SG.x", email_from="alerts@corp.ru"))
+    assert emailer.is_configured() is True
+
+
+def test_sendgrid_payload(monkeypatch):
+    monkeypatch.setattr(emailer, "settings", dataclasses.replace(
+        settings, sendgrid_api_key="SG.x", email_from="alerts@corp.ru"))
+    payload = emailer._sendgrid_payload("Тема", "<b>html</b>", "plain", ["a@b.ru", "c@d.ru"])
+    assert payload["from"]["email"] == "alerts@corp.ru"
+    assert payload["subject"] == "Тема"
+    assert [t["email"] for t in payload["personalizations"][0]["to"]] == ["a@b.ru", "c@d.ru"]
+    assert payload["content"][0] == {"type": "text/plain", "value": "plain"}
+    assert payload["content"][1]["type"] == "text/html"
+
+
+@pytest.mark.asyncio
+async def test_send_email_prefers_sendgrid_over_smtp(tmp_db, monkeypatch):
+    monkeypatch.setattr(emailer, "settings", dataclasses.replace(
+        settings, sendgrid_api_key="SG.x", email_from="alerts@corp.ru",
+        smtp_host="smtp.test", smtp_user="u", smtp_password="p"))
+    db.add_email_recipient("dest@example.com")
+    called = {}
+
+    async def fake_sendgrid(subject, html_body, plain_body, recipients):
+        called["via"] = "sendgrid"
+        called["recipients"] = recipients
+
+    def fake_smtp(*args):
+        called["via"] = "smtp"
+
+    monkeypatch.setattr(emailer, "_send_via_sendgrid", fake_sendgrid)
+    monkeypatch.setattr(emailer, "_send_sync", fake_smtp)
+    assert await emailer.send_email("Тема", "<b>текст</b>") is True
+    assert called["via"] == "sendgrid", "при заданном SENDGRID_API_KEY SMTP не используется"
+    assert called["recipients"] == ["dest@example.com"]
+
+
 def test_email_recipients_crud(tmp_db):
     assert db.add_email_recipient("A@Example.com", "Иван") is True
     assert db.add_email_recipient("a@example.com") is False, "регистр не создаёт дубль"

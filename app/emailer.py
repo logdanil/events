@@ -1,9 +1,12 @@
-"""Дублирование уведомлений на электронную почту через SMTP (stdlib, без новых зависимостей).
+"""Дублирование уведомлений на электронную почту.
 
-Работает с любым провайдером: Gmail (smtp.gmail.com:465 + пароль приложения),
-Яндекс (smtp.yandex.ru:465), корпоративный сервер или Amazon SES по SMTP.
-Функция необязательная: без SMTP-переменных в .env бот просто не шлёт письма.
+Два транспорта:
+- SendGrid HTTP API (приоритетный) — работает на Railway, где исходящий SMTP
+  заблокирован. Нужны SENDGRID_API_KEY и верифицированный отправитель EMAIL_FROM.
+- SMTP (Gmail/Яндекс/корпоративный) — для локального запуска и хостингов
+  без блокировки портов 465/587.
 
+Функция необязательная: без настроек бот просто не шлёт письма.
 На почту уходят события (полный отчёт) и ежедневное саммари —
 почасовые отчёты о проверках намеренно не дублируются, чтобы не засорять inbox.
 """
@@ -16,13 +19,19 @@ import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+import httpx
+
 from app import db, formatters
 from app.config import settings
 
 log = logging.getLogger(__name__)
 
+SENDGRID_URL = "https://api.sendgrid.com/v3/mail/send"
+
 
 def is_configured() -> bool:
+    if settings.sendgrid_api_key:
+        return bool(settings.email_from)  # SendGrid требует верифицированный from
     return bool(settings.smtp_host and settings.smtp_user and settings.smtp_password)
 
 
@@ -56,6 +65,30 @@ def _send_sync(subject: str, html_body: str, plain_body: str, recipients: list[s
             server.send_message(msg)
 
 
+def _sendgrid_payload(subject: str, html_body: str, plain_body: str,
+                      recipients: list[str]) -> dict:
+    return {
+        "personalizations": [{"to": [{"email": r} for r in recipients]}],
+        "from": {"email": settings.email_from, "name": "Corporate Events Monitor"},
+        "subject": subject,
+        "content": [
+            {"type": "text/plain", "value": plain_body},
+            {"type": "text/html", "value": html_body},
+        ],
+    }
+
+
+async def _send_via_sendgrid(subject: str, html_body: str, plain_body: str,
+                             recipients: list[str]) -> None:
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            SENDGRID_URL,
+            json=_sendgrid_payload(subject, html_body, plain_body, recipients),
+            headers={"Authorization": f"Bearer {settings.sendgrid_api_key}"})
+        if response.status_code >= 400:
+            raise RuntimeError(f"SendGrid {response.status_code}: {response.text[:300]}")
+
+
 async def send_email(subject: str, telegram_html: str,
                      recipients: list[str] | None = None) -> bool:
     """Отправляет письмо (HTML + plain-text альтернатива). Best-effort:
@@ -66,9 +99,13 @@ async def send_email(subject: str, telegram_html: str,
         recipients = [r["email"] for r in db.list_email_recipients()]
     if not recipients:
         return False
+    html_body = telegram_html_to_email(telegram_html)
+    plain_body = formatters.strip_html(telegram_html)
     try:
-        await asyncio.to_thread(_send_sync, subject, telegram_html_to_email(telegram_html),
-                                formatters.strip_html(telegram_html), recipients)
+        if settings.sendgrid_api_key:
+            await _send_via_sendgrid(subject, html_body, plain_body, recipients)
+        else:
+            await asyncio.to_thread(_send_sync, subject, html_body, plain_body, recipients)
         log.info("Письмо «%s» отправлено %d получателям", subject[:60], len(recipients))
         return True
     except Exception:
