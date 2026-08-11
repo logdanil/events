@@ -117,8 +117,8 @@ async def test_addemail_command_validation(tmp_db):
     await bot.add_email(update2, make_context(["user@corp.ru", "Иван"]))
     assert "добавлен" in _text(update2)
     assert db.list_email_recipients()[0]["email"] == "user@corp.ru"
-    # SMTP не настроен — команда честно предупреждает.
-    assert "SMTP не настроен" in _text(update2)
+    # Почта не настроена — команда честно предупреждает.
+    assert "Почта не настроена" in _text(update2)
 
 
 @pytest.mark.asyncio
