@@ -100,6 +100,28 @@ async def test_send_email_prefers_sendgrid_over_smtp(tmp_db, monkeypatch):
     assert called["recipients"] == ["dest@example.com"]
 
 
+@pytest.mark.asyncio
+async def test_brevo_has_priority_and_payload(tmp_db, monkeypatch):
+    monkeypatch.setattr(emailer, "settings", dataclasses.replace(
+        settings, brevo_api_key="brevo-x", sendgrid_api_key="SG.x",
+        email_from="alerts@corp.ru"))
+    db.add_email_recipient("dest@example.com")
+    called = {}
+
+    async def fake_brevo(subject, html_body, plain_body, recipients):
+        called["via"] = "brevo"
+        called["recipients"] = recipients
+
+    async def fake_sendgrid(*args):
+        called["via"] = "sendgrid"
+
+    monkeypatch.setattr(emailer, "_send_via_brevo", fake_brevo)
+    monkeypatch.setattr(emailer, "_send_via_sendgrid", fake_sendgrid)
+    assert await emailer.send_email("Тема", "<b>текст</b>") is True
+    assert called["via"] == "brevo", "Brevo приоритетнее SendGrid"
+    assert called["recipients"] == ["dest@example.com"]
+
+
 def test_email_recipients_crud(tmp_db):
     assert db.add_email_recipient("A@Example.com", "Иван") is True
     assert db.add_email_recipient("a@example.com") is False, "регистр не создаёт дубль"

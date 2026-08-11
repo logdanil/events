@@ -1,8 +1,9 @@
 """Дублирование уведомлений на электронную почту.
 
-Два транспорта:
-- SendGrid HTTP API (приоритетный) — работает на Railway, где исходящий SMTP
-  заблокирован. Нужны SENDGRID_API_KEY и верифицированный отправитель EMAIL_FROM.
+Транспорты (по приоритету):
+- Brevo HTTP API — работает на Railway (SMTP там заблокирован) и в регионах,
+  которые не обслуживает Twilio/SendGrid. Нужны BREVO_API_KEY + EMAIL_FROM.
+- SendGrid HTTP API — то же, если регион поддерживается Twilio.
 - SMTP (Gmail/Яндекс/корпоративный) — для локального запуска и хостингов
   без блокировки портов 465/587.
 
@@ -27,11 +28,12 @@ from app.config import settings
 log = logging.getLogger(__name__)
 
 SENDGRID_URL = "https://api.sendgrid.com/v3/mail/send"
+BREVO_URL = "https://api.brevo.com/v3/smtp/email"
 
 
 def is_configured() -> bool:
-    if settings.sendgrid_api_key:
-        return bool(settings.email_from)  # SendGrid требует верифицированный from
+    if settings.brevo_api_key or settings.sendgrid_api_key:
+        return bool(settings.email_from)  # HTTP-провайдеры требуют верифицированный from
     return bool(settings.smtp_host and settings.smtp_user and settings.smtp_password)
 
 
@@ -78,6 +80,23 @@ def _sendgrid_payload(subject: str, html_body: str, plain_body: str,
     }
 
 
+async def _send_via_brevo(subject: str, html_body: str, plain_body: str,
+                          recipients: list[str]) -> None:
+    payload = {
+        "sender": {"email": settings.email_from, "name": "Corporate Events Monitor"},
+        "to": [{"email": r} for r in recipients],
+        "subject": subject,
+        "htmlContent": html_body,
+        "textContent": plain_body,
+    }
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(BREVO_URL, json=payload,
+                                     headers={"api-key": settings.brevo_api_key,
+                                              "accept": "application/json"})
+        if response.status_code >= 400:
+            raise RuntimeError(f"Brevo {response.status_code}: {response.text[:300]}")
+
+
 async def _send_via_sendgrid(subject: str, html_body: str, plain_body: str,
                              recipients: list[str]) -> None:
     async with httpx.AsyncClient(timeout=30) as client:
@@ -102,7 +121,9 @@ async def send_email(subject: str, telegram_html: str,
     html_body = telegram_html_to_email(telegram_html)
     plain_body = formatters.strip_html(telegram_html)
     try:
-        if settings.sendgrid_api_key:
+        if settings.brevo_api_key:
+            await _send_via_brevo(subject, html_body, plain_body, recipients)
+        elif settings.sendgrid_api_key:
             await _send_via_sendgrid(subject, html_body, plain_body, recipients)
         else:
             await asyncio.to_thread(_send_sync, subject, html_body, plain_body, recipients)
