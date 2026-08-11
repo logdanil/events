@@ -22,8 +22,11 @@ class Settings:
     max_search_results: int = int(os.getenv("MAX_SEARCH_RESULTS", "6"))
     lookback_days: int = int(os.getenv("LOOKBACK_DAYS", "3"))
     # Email-дублирование уведомлений (необязательно).
-    # Приоритет транспортов: SMTP2GO → Brevo → SendGrid → SMTP. HTTP API нужны,
-    # потому что Railway блокирует исходящий SMTP; SMTP работает при локальном запуске.
+    # Приоритет транспортов: Gmail API → SMTP2GO → Brevo → SendGrid → SMTP.
+    # HTTP API нужны, потому что Railway блокирует исходящий SMTP.
+    gmail_client_id: str = os.getenv("GMAIL_CLIENT_ID", "")
+    gmail_client_secret: str = os.getenv("GMAIL_CLIENT_SECRET", "")
+    gmail_refresh_token: str = os.getenv("GMAIL_REFRESH_TOKEN", "")
     smtp2go_api_key: str = os.getenv("SMTP2GO_API_KEY", "")
     brevo_api_key: str = os.getenv("BREVO_API_KEY", "")
     sendgrid_api_key: str = os.getenv("SENDGRID_API_KEY", "")

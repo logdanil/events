@@ -14,9 +14,11 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import smtplib
 import ssl
+import time
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -30,9 +32,18 @@ log = logging.getLogger(__name__)
 SENDGRID_URL = "https://api.sendgrid.com/v3/mail/send"
 BREVO_URL = "https://api.brevo.com/v3/smtp/email"
 SMTP2GO_URL = "https://api.smtp2go.com/v3/email/send"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GMAIL_SEND_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
+
+
+def _gmail_configured() -> bool:
+    return bool(settings.gmail_client_id and settings.gmail_client_secret
+                and settings.gmail_refresh_token)
 
 
 def is_configured() -> bool:
+    if _gmail_configured():
+        return bool(settings.email_from)
     if settings.smtp2go_api_key or settings.brevo_api_key or settings.sendgrid_api_key:
         return bool(settings.email_from)  # HTTP-провайдеры требуют верифицированный from
     return bool(settings.smtp_host and settings.smtp_user and settings.smtp_password)
@@ -49,13 +60,54 @@ def telegram_html_to_email(html_text: str) -> str:
             "Corporate Events Monitor · автоматическое уведомление</p>")
 
 
-def _send_sync(subject: str, html_body: str, plain_body: str, recipients: list[str]) -> None:
+def _build_mime(subject: str, html_body: str, plain_body: str,
+                recipients: list[str]) -> MIMEMultipart:
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = settings.email_from or settings.smtp_user
     msg["To"] = ", ".join(recipients)
     msg.attach(MIMEText(plain_body, "plain", "utf-8"))
     msg.attach(MIMEText(html_body, "html", "utf-8"))
+    return msg
+
+
+# Кэш access-токена Gmail: refresh-токен вечный, access живёт ~1 час.
+_gmail_token: dict = {"value": "", "expires_at": 0.0}
+
+
+async def _gmail_access_token(client: httpx.AsyncClient) -> str:
+    if _gmail_token["value"] and time.monotonic() < _gmail_token["expires_at"] - 60:
+        return _gmail_token["value"]
+    response = await client.post(GOOGLE_TOKEN_URL, data={
+        "client_id": settings.gmail_client_id,
+        "client_secret": settings.gmail_client_secret,
+        "refresh_token": settings.gmail_refresh_token,
+        "grant_type": "refresh_token",
+    })
+    if response.status_code >= 400:
+        raise RuntimeError(f"Gmail OAuth {response.status_code}: {response.text[:300]}")
+    data = response.json()
+    _gmail_token["value"] = data["access_token"]
+    _gmail_token["expires_at"] = time.monotonic() + int(data.get("expires_in", 3600))
+    return _gmail_token["value"]
+
+
+async def _send_via_gmail(subject: str, html_body: str, plain_body: str,
+                          recipients: list[str]) -> None:
+    """Отправка через Gmail API от имени самого ящика EMAIL_FROM:
+    письма идут через серверы Gmail, SPF/DKIM сходятся — лучшая доставляемость."""
+    msg = _build_mime(subject, html_body, plain_body, recipients)
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii")
+    async with httpx.AsyncClient(timeout=30) as client:
+        token = await _gmail_access_token(client)
+        response = await client.post(GMAIL_SEND_URL, json={"raw": raw},
+                                     headers={"Authorization": f"Bearer {token}"})
+        if response.status_code >= 400:
+            raise RuntimeError(f"Gmail API {response.status_code}: {response.text[:300]}")
+
+
+def _send_sync(subject: str, html_body: str, plain_body: str, recipients: list[str]) -> None:
+    msg = _build_mime(subject, html_body, plain_body, recipients)
     context = ssl.create_default_context()
     if settings.smtp_port == 465:
         with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, context=context, timeout=30) as server:
@@ -141,7 +193,9 @@ async def send_email(subject: str, telegram_html: str,
     html_body = telegram_html_to_email(telegram_html)
     plain_body = formatters.strip_html(telegram_html)
     try:
-        if settings.smtp2go_api_key:
+        if _gmail_configured():
+            await _send_via_gmail(subject, html_body, plain_body, recipients)
+        elif settings.smtp2go_api_key:
             await _send_via_smtp2go(subject, html_body, plain_body, recipients)
         elif settings.brevo_api_key:
             await _send_via_brevo(subject, html_body, plain_body, recipients)

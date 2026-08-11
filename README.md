@@ -176,6 +176,19 @@ SPYF · SPDR S&P 500 ETF Trust
 2. Администратор: `/adduser 123456789 Иван Петров`.
 3. Управление: `/users` — список, `/removeuser ID` — отписать.
 
+### Email-дублирование через Gmail API (рекомендуемый способ)
+
+Письма о событиях и дневное саммари можно дублировать на почту прямо с gmail-ящика — без сторонних email-сервисов, телефонов и доменов; доставляемость лучшая из возможных (настоящие серверы Gmail):
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → создайте/выберите проект → **APIs & Services → Library** → найдите **Gmail API** → Enable.
+2. **APIs & Services → OAuth consent screen**: тип External, заполните название и email, добавьте свой gmail в Test users; затем нажмите **Publish app** (предупреждение о верификации игнорируйте — приложение личное; без публикации refresh-токен истекает через 7 дней).
+3. **Credentials → Create Credentials → OAuth client ID** → тип **Desktop app** → скопируйте Client ID и Client Secret.
+4. Локально: `.venv/bin/python scripts/gmail_auth.py CLIENT_ID CLIENT_SECRET` → в браузере войдите в ящик-отправитель и разрешите доступ → скрипт выведет `GMAIL_REFRESH_TOKEN`.
+5. В Railway → Variables: `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `EMAIL_FROM=ящик-отправитель`.
+6. В боте: `/addemail адрес`, затем `/testemail`.
+
+Альтернативные транспорты (задаётся соответствующей переменной): SMTP2GO, Brevo, SendGrid, обычный SMTP — см. `.env.example`. На Railway обычный SMTP не работает (порты заблокированы).
+
 Диагностика (только для администратора):
 
 - `/debugscan TSM` — поэтапная проверка одного актива: конфигурация → Tavily → Claude (сырой ответ) → фильтрация → запись в базу. В этом режиме модель возвращает события с любым confidence, но в базу записываются только прошедшие рабочий порог.

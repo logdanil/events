@@ -101,6 +101,39 @@ async def test_send_email_prefers_sendgrid_over_smtp(tmp_db, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_gmail_has_top_priority(tmp_db, monkeypatch):
+    monkeypatch.setattr(emailer, "settings", dataclasses.replace(
+        settings, gmail_client_id="cid", gmail_client_secret="cs",
+        gmail_refresh_token="rt", smtp2go_api_key="s2g-x", email_from="me@gmail.com"))
+    db.add_email_recipient("dest@example.com")
+    called = {}
+
+    async def fake_gmail(subject, html_body, plain_body, recipients):
+        called["via"] = "gmail"
+        called["recipients"] = recipients
+
+    async def fake_other(*args):
+        called["via"] = "other"
+
+    monkeypatch.setattr(emailer, "_send_via_gmail", fake_gmail)
+    monkeypatch.setattr(emailer, "_send_via_smtp2go", fake_other)
+    assert emailer.is_configured() is True
+    assert await emailer.send_email("Тема", "<b>текст</b>") is True
+    assert called["via"] == "gmail", "Gmail API приоритетнее остальных транспортов"
+    assert called["recipients"] == ["dest@example.com"]
+
+
+def test_gmail_mime_roundtrip(monkeypatch):
+    monkeypatch.setattr(emailer, "settings", dataclasses.replace(
+        settings, email_from="me@gmail.com"))
+    msg = emailer._build_mime("Тема письма", "<b>html</b>", "plain", ["a@b.ru"])
+    assert msg["From"] == "me@gmail.com"
+    assert msg["To"] == "a@b.ru"
+    raw = msg.as_bytes()
+    assert b"html" in raw and b"plain" in raw
+
+
+@pytest.mark.asyncio
 async def test_smtp2go_has_top_priority(tmp_db, monkeypatch):
     monkeypatch.setattr(emailer, "settings", dataclasses.replace(
         settings, smtp2go_api_key="s2g-x", brevo_api_key="brevo-x",
