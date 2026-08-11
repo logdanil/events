@@ -101,6 +101,29 @@ async def test_send_email_prefers_sendgrid_over_smtp(tmp_db, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_smtp2go_has_top_priority(tmp_db, monkeypatch):
+    monkeypatch.setattr(emailer, "settings", dataclasses.replace(
+        settings, smtp2go_api_key="s2g-x", brevo_api_key="brevo-x",
+        sendgrid_api_key="SG.x", email_from="alerts@corp.ru"))
+    db.add_email_recipient("dest@example.com")
+    called = {}
+
+    async def fake_smtp2go(subject, html_body, plain_body, recipients):
+        called["via"] = "smtp2go"
+        called["recipients"] = recipients
+
+    async def fake_other(*args):
+        called["via"] = "other"
+
+    monkeypatch.setattr(emailer, "_send_via_smtp2go", fake_smtp2go)
+    monkeypatch.setattr(emailer, "_send_via_brevo", fake_other)
+    monkeypatch.setattr(emailer, "_send_via_sendgrid", fake_other)
+    assert await emailer.send_email("Тема", "<b>текст</b>") is True
+    assert called["via"] == "smtp2go"
+    assert called["recipients"] == ["dest@example.com"]
+
+
+@pytest.mark.asyncio
 async def test_brevo_has_priority_and_payload(tmp_db, monkeypatch):
     monkeypatch.setattr(emailer, "settings", dataclasses.replace(
         settings, brevo_api_key="brevo-x", sendgrid_api_key="SG.x",

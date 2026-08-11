@@ -29,10 +29,11 @@ log = logging.getLogger(__name__)
 
 SENDGRID_URL = "https://api.sendgrid.com/v3/mail/send"
 BREVO_URL = "https://api.brevo.com/v3/smtp/email"
+SMTP2GO_URL = "https://api.smtp2go.com/v3/email/send"
 
 
 def is_configured() -> bool:
-    if settings.brevo_api_key or settings.sendgrid_api_key:
+    if settings.smtp2go_api_key or settings.brevo_api_key or settings.sendgrid_api_key:
         return bool(settings.email_from)  # HTTP-провайдеры требуют верифицированный from
     return bool(settings.smtp_host and settings.smtp_user and settings.smtp_password)
 
@@ -80,6 +81,25 @@ def _sendgrid_payload(subject: str, html_body: str, plain_body: str,
     }
 
 
+async def _send_via_smtp2go(subject: str, html_body: str, plain_body: str,
+                            recipients: list[str]) -> None:
+    payload = {
+        "sender": settings.email_from,
+        "to": recipients,
+        "subject": subject,
+        "html_body": html_body,
+        "text_body": plain_body,
+    }
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(SMTP2GO_URL, json=payload,
+                                     headers={"X-Smtp2go-Api-Key": settings.smtp2go_api_key,
+                                              "accept": "application/json"})
+        data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+        succeeded = data.get("data", {}).get("succeeded", 0)
+        if response.status_code >= 400 or not succeeded:
+            raise RuntimeError(f"SMTP2GO {response.status_code}: {response.text[:300]}")
+
+
 async def _send_via_brevo(subject: str, html_body: str, plain_body: str,
                           recipients: list[str]) -> None:
     payload = {
@@ -121,7 +141,9 @@ async def send_email(subject: str, telegram_html: str,
     html_body = telegram_html_to_email(telegram_html)
     plain_body = formatters.strip_html(telegram_html)
     try:
-        if settings.brevo_api_key:
+        if settings.smtp2go_api_key:
+            await _send_via_smtp2go(subject, html_body, plain_body, recipients)
+        elif settings.brevo_api_key:
             await _send_via_brevo(subject, html_body, plain_body, recipients)
         elif settings.sendgrid_api_key:
             await _send_via_sendgrid(subject, html_body, plain_body, recipients)
