@@ -46,6 +46,12 @@ HELP = """<b>Мониторинг корпоративных событий</b>
 /users — список подписчиков
 /testbroadcast — тестовая рассылка всем с отчётом о доставке
 
+Email-дублирование (события + дневное саммари):
+/addemail адрес [имя] — добавить почту в рассылку
+/removeemail адрес — убрать
+/emails — список адресов и статус SMTP
+/testemail — тестовое письмо
+
 Диагностика и сопоставление:
 /debugscan АКТИВ — поэтапная проверка одного актива
 /matchtest АКТИВ | ТЕКСТ — проверить сопоставление текста
@@ -394,6 +400,74 @@ async def cost(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 SCAN_REPORTS_KEY = "scan_reports"
+
+_EMAIL_RE = re.compile(r"^[\w.+-]+@[\w-]+\.[\w.-]{2,}$")
+
+
+async def add_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/addemail адрес [имя] — дублировать события и дневное саммари на почту."""
+    if not await guard(update): return
+    from app import emailer
+    args = list(context.args)
+    if not args or not _EMAIL_RE.match(args[0]):
+        await update.effective_message.reply_text("Формат: /addemail user@example.com [имя]")
+        return
+    email_addr = args[0].lower()
+    name = " ".join(args[1:]) or None
+    added = db.add_email_recipient(email_addr, name)
+    note = "" if emailer.is_configured() else (
+        "\n⚠️ SMTP не настроен: письма не будут отправляться, пока в .env не заданы "
+        "SMTP_HOST, SMTP_USER и SMTP_PASSWORD.")
+    await update.effective_message.reply_text(
+        (f"Адрес {email_addr} добавлен: события и дневное саммари будут дублироваться на почту."
+         if added else f"Адрес {email_addr} уже в списке.") + note)
+
+
+async def remove_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await guard(update): return
+    if not context.args:
+        await update.effective_message.reply_text("Формат: /removeemail user@example.com")
+        return
+    if db.remove_email_recipient(context.args[0]):
+        await update.effective_message.reply_text(f"Адрес {context.args[0].lower()} удалён из рассылки.")
+    else:
+        await update.effective_message.reply_text("Такого адреса нет. Список: /emails")
+
+
+async def emails(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await guard(update): return
+    from app import emailer
+    recipients = db.list_email_recipients()
+    if not recipients:
+        await update.effective_message.reply_text(
+            "Email-рассылка пуста. Добавить: /addemail user@example.com")
+        return
+    lines = [f"Email-рассылка ({len(recipients)}) — события и дневное саммари:"]
+    for r in recipients:
+        lines.append(f"• {r['email']}" + (f" — {r['name']}" if r["name"] else ""))
+    lines.append("SMTP: " + ("настроен ✅" if emailer.is_configured() else "НЕ настроен ⚠️ (см. .env)"))
+    await update.effective_message.reply_text("\n".join(lines))
+
+
+async def test_email_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/testemail — тестовое письмо всем адресатам."""
+    if not await guard(update): return
+    from app import emailer
+    if not emailer.is_configured():
+        await update.effective_message.reply_text(
+            "SMTP не настроен. Добавьте в .env: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD "
+            "(для Gmail/Яндекса — пароль приложения) и перезапустите бота.")
+        return
+    recipients = db.list_email_recipients()
+    if not recipients:
+        await update.effective_message.reply_text("Список адресов пуст: /addemail user@example.com")
+        return
+    ok = await emailer.send_email(
+        "🔧 Тест email-рассылки Corporate Events Monitor",
+        "<b>Тестовое письмо</b>\nЕсли вы его видите — дублирование уведомлений на почту работает.")
+    await update.effective_message.reply_text(
+        f"✅ Письмо отправлено на {len(recipients)} адрес(а)." if ok
+        else "❌ Не удалось отправить: проверьте SMTP-настройки и логи.")
 
 
 def notification_recipients() -> list[int]:

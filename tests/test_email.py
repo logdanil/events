@@ -1,0 +1,109 @@
+"""Email-дублирование: конвертация, адресаты, команды, интеграция с рассылкой."""
+from __future__ import annotations
+
+import dataclasses
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+import pytest
+
+from app import bot, db, emailer, formatters
+from app.config import settings
+from tests.test_bot import make_context, make_update
+
+
+def _text(update) -> str:
+    return "\n".join(c.args[0] for c in update.effective_message.reply_text.await_args_list)
+
+
+def test_not_configured_without_smtp(monkeypatch):
+    monkeypatch.setattr(emailer, "settings", dataclasses.replace(settings, smtp_host="", smtp_user=""))
+    assert emailer.is_configured() is False
+
+
+@pytest.mark.asyncio
+async def test_send_email_noop_without_config(tmp_db, monkeypatch):
+    monkeypatch.setattr(emailer, "settings", dataclasses.replace(settings, smtp_host=""))
+    assert await emailer.send_email("тема", "<b>текст</b>") is False
+
+
+def test_telegram_html_to_email():
+    result = emailer.telegram_html_to_email("🚨 <b>Дробление акций</b>\n<code>SPYF</code>")
+    assert "🚨 <b>Дробление акций</b><br>" in result
+    assert "<code>SPYF</code>" in result
+    assert "font-family" in result
+
+
+def test_event_subject():
+    subject = emailer.event_subject({"asset_code": "SPYF", "event_type": "stock_split",
+                                     "severity": "CRITICAL"})
+    assert subject == "🔴 SPYF — Дробление акций"
+
+
+@pytest.mark.asyncio
+async def test_send_email_calls_smtp(tmp_db, monkeypatch):
+    monkeypatch.setattr(emailer, "settings", dataclasses.replace(
+        settings, smtp_host="smtp.test", smtp_user="u@test", smtp_password="secret"))
+    db.add_email_recipient("dest@example.com")
+    captured = {}
+
+    def fake_send(subject, html_body, plain_body, recipients):
+        captured.update(subject=subject, html=html_body, plain=plain_body, recipients=recipients)
+
+    monkeypatch.setattr(emailer, "_send_sync", fake_send)
+    ok = await emailer.send_email("Тема", "<b>Событие</b>\nстрока")
+    assert ok is True
+    assert captured["recipients"] == ["dest@example.com"]
+    assert "<b>Событие</b><br>" in captured["html"]
+    assert captured["plain"] == "Событие\nстрока"
+
+
+def test_email_recipients_crud(tmp_db):
+    assert db.add_email_recipient("A@Example.com", "Иван") is True
+    assert db.add_email_recipient("a@example.com") is False, "регистр не создаёт дубль"
+    assert [r["email"] for r in db.list_email_recipients()] == ["a@example.com"]
+    assert db.remove_email_recipient("A@EXAMPLE.COM") is True
+    assert db.list_email_recipients() == []
+
+
+@pytest.mark.asyncio
+async def test_addemail_command_validation(tmp_db):
+    update = make_update()
+    await bot.add_email(update, make_context(["не-адрес"]))
+    assert "Формат:" in _text(update)
+    update2 = make_update()
+    await bot.add_email(update2, make_context(["user@corp.ru", "Иван"]))
+    assert "добавлен" in _text(update2)
+    assert db.list_email_recipients()[0]["email"] == "user@corp.ru"
+    # SMTP не настроен — команда честно предупреждает.
+    assert "SMTP не настроен" in _text(update2)
+
+
+@pytest.mark.asyncio
+async def test_emails_denied_for_non_admin(tmp_db):
+    db.add_subscriber(555)
+    for handler in (bot.add_email, bot.remove_email, bot.emails, bot.test_email_cmd):
+        update = make_update(user_id=555)
+        await handler(update, make_context(["x@y.com"]))
+        assert "Нет доступа" in _text(update), handler.__name__
+
+
+@pytest.mark.asyncio
+async def test_send_events_emails_full_report(tmp_db, monkeypatch):
+    """При рассылке события письмо уходит с полным отчётом."""
+    from app import main as app_main
+    db.upsert_asset("SPYF", "SPDR S&P 500 ETF Trust (SPY)", "ETF")
+    event_id = db.save_event({"fingerprint": "fp-email", "asset_code": "SPYF",
+                              "event_type": "stock_split", "title": "Split announced",
+                              "summary_ru": "Дробление 1:5", "source_url": "https://x.com/1",
+                              "confidence": 0.9, "severity": "CRITICAL"})
+    sent_mail = AsyncMock(return_value=True)
+    monkeypatch.setattr(app_main.emailer, "send_email", sent_mail)
+    fake_app = SimpleNamespace(bot=SimpleNamespace(
+        send_message=AsyncMock(return_value=SimpleNamespace(message_id=1))))
+    event = db.get_event(event_id)
+    await app_main.send_events(fake_app, [event])
+    sent_mail.assert_awaited_once()
+    subject, body = sent_mail.await_args.args
+    assert subject == "🔴 SPYF — Дробление акций"
+    assert "ДРОБЛЕНИЕ АКЦИЙ" in body and "SPYF" in body

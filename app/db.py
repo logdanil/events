@@ -98,6 +98,11 @@ CREATE TABLE IF NOT EXISTS subscribers (
   name TEXT,
   added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS email_recipients (
+  email TEXT PRIMARY KEY COLLATE NOCASE,
+  name TEXT,
+  added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS llm_usage (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -757,6 +762,27 @@ def list_subscribers() -> list[dict[str, Any]]:
 def is_subscriber(chat_id: int) -> bool:
     with connect() as conn:
         return conn.execute("SELECT 1 FROM subscribers WHERE chat_id=?", (int(chat_id),)).fetchone() is not None
+
+
+# --- Email-адресаты (дублирование уведомлений на почту) ----------------------
+
+def add_email_recipient(email: str, name: str | None = None) -> bool:
+    with connect() as conn:
+        cur = conn.execute("INSERT OR IGNORE INTO email_recipients(email,name) VALUES(?,?)",
+                           (email.strip().lower(), name))
+        return cur.rowcount > 0
+
+
+def remove_email_recipient(email: str) -> bool:
+    with connect() as conn:
+        return conn.execute("DELETE FROM email_recipients WHERE email=?",
+                            (email.strip().lower(),)).rowcount > 0
+
+
+def list_email_recipients() -> list[dict[str, Any]]:
+    with connect() as conn:
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM email_recipients ORDER BY added_at").fetchall()]
 
 
 def set_asset_field(code: str, field: str, value: str | None) -> None:

@@ -9,7 +9,7 @@ from pathlib import Path
 from telegram import Update
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
-from app import db, formatters, llm, matcher
+from app import db, emailer, formatters, llm, matcher
 from app.bot import (
     start, show_id, list_assets, add_asset, add_source, remove_asset,
     set_interval, pause, resume, digest, status, setup_commands,
@@ -18,6 +18,7 @@ from app.bot import (
     match_test, unmatched_cmd, match_cmd, ignore_publication, set_id_cmd, rematch,
     queue_cmd, delete_test, delete_event_cmd, add_user, remove_user, users,
     reports_cmd, scans_history, articles,
+    add_email, remove_email, emails, test_email_cmd,
 )
 from app.config import settings
 from app.formatters import MSK
@@ -52,6 +53,9 @@ async def send_events(app: Application, events: list[dict]) -> None:
         # sent_at ставится по доставке администратору; сбой у отдельного подписчика
         # (заблокировал бота и т.п.) не должен вызывать повторную рассылку всем.
         db.mark_sent(event["fingerprint"])
+        # Дублирование на почту: полный отчёт о событии (best-effort, не блокирует TG).
+        await emailer.send_email(emailer.event_subject(event),
+                                 formatters.format_event_full(event, asset))
         for chat_id in subscriber_ids:
             try:
                 await with_retries(
@@ -376,6 +380,9 @@ async def send_daily_summary(context: ContextTypes.DEFAULT_TYPE) -> None:
             await send_html_message(context.application.bot, chat_id, summary)
         except Exception:
             log.warning("Не удалось отправить дневное саммари получателю %s", chat_id)
+    now = datetime.now(MSK)
+    await emailer.send_email(
+        f"🗞 Итоги дня мониторинга — {now.day:02d}.{now.month:02d}.{now.year}", summary)
 
 
 async def summary_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -688,6 +695,10 @@ def main() -> None:
     app.add_handler(CommandHandler("reports", reports_cmd))
     app.add_handler(CommandHandler("testbroadcast", test_broadcast))
     app.add_handler(CommandHandler("summary", summary_cmd))
+    app.add_handler(CommandHandler("addemail", add_email))
+    app.add_handler(CommandHandler("removeemail", remove_email))
+    app.add_handler(CommandHandler("emails", emails))
+    app.add_handler(CommandHandler("testemail", test_email_cmd))
     app.add_handler(CommandHandler("scans", scans_history))
     app.add_handler(CommandHandler("articles", articles))
     app.add_handler(CallbackQueryHandler(event_callback, pattern=r"^event:\d+$"))

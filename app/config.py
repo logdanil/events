@@ -21,6 +21,12 @@ class Settings:
     timezone: str = os.getenv("TIMEZONE", "Europe/Amsterdam")
     max_search_results: int = int(os.getenv("MAX_SEARCH_RESULTS", "6"))
     lookback_days: int = int(os.getenv("LOOKBACK_DAYS", "3"))
+    # Email-дублирование уведомлений (необязательно): SMTP любого провайдера.
+    smtp_host: str = os.getenv("SMTP_HOST", "")
+    smtp_port: int = int(os.getenv("SMTP_PORT", "465"))
+    smtp_user: str = os.getenv("SMTP_USER", "")
+    smtp_password: str = os.getenv("SMTP_PASSWORD", "")
+    email_from: str = os.getenv("EMAIL_FROM", "")
     # SEC и ряд бирж требуют User-Agent с контактом.
     user_agent: str = os.getenv("USER_AGENT", "corporate-events-monitor/1.0 (admin contact in .env)")
     llm_batch_size: int = int(os.getenv("LLM_BATCH_SIZE", "20"))
