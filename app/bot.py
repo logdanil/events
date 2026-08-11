@@ -405,22 +405,38 @@ _EMAIL_RE = re.compile(r"^[\w.+-]+@[\w-]+\.[\w.-]{2,}$")
 
 
 async def add_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/addemail адрес [имя] — дублировать события и дневное саммари на почту."""
+    """/addemail адрес [имя] — один получатель с именем;
+    /addemail a@x.ru b@y.ru, c@z.ru — сразу несколько (через пробел или запятую)."""
     if not await guard(update): return
     from app import emailer
-    args = list(context.args)
-    if not args or not _EMAIL_RE.match(args[0]):
-        await update.effective_message.reply_text("Формат: /addemail user@example.com [имя]")
+    tokens = [t for raw in context.args for t in raw.replace(",", " ").split() if t]
+    emails = [t.lower() for t in tokens if _EMAIL_RE.match(t)]
+    non_emails = [t for t in tokens if not _EMAIL_RE.match(t)]
+    if not emails:
+        await update.effective_message.reply_text(
+            "Формат: /addemail user@example.com [имя]\n"
+            "или пачкой: /addemail a@x.ru b@y.ru c@z.ru")
         return
-    email_addr = args[0].lower()
-    name = " ".join(args[1:]) or None
-    added = db.add_email_recipient(email_addr, name)
     note = "" if emailer.is_configured() else (
-        "\n⚠️ Почта не настроена: задайте SENDGRID_API_KEY + EMAIL_FROM (для Railway) "
-        "либо SMTP_HOST/SMTP_USER/SMTP_PASSWORD (локально) — иначе письма не отправятся.")
-    await update.effective_message.reply_text(
-        (f"Адрес {email_addr} добавлен: события и дневное саммари будут дублироваться на почту."
-         if added else f"Адрес {email_addr} уже в списке.") + note)
+        "\n⚠️ Почта не настроена: задайте GMAIL_* переменные (см. README) — "
+        "иначе письма не отправятся.")
+    if len(emails) == 1:
+        name = " ".join(non_emails) or None
+        added = db.add_email_recipient(emails[0], name)
+        await update.effective_message.reply_text(
+            (f"Адрес {emails[0]} добавлен: события и дневное саммари будут дублироваться на почту."
+             if added else f"Адрес {emails[0]} уже в списке.") + note)
+        return
+    added, skipped = [], []
+    for email_addr in emails:
+        (added if db.add_email_recipient(email_addr) else skipped).append(email_addr)
+    lines = [f"Добавлено адресов: {len(added)}"] + [f"• {e}" for e in added]
+    if skipped:
+        lines.append(f"Уже были в списке: {', '.join(skipped)}")
+    if non_emails:
+        lines.append(f"Не похоже на адреса (пропущено): {', '.join(non_emails[:5])}")
+    lines.append("Проверить доставку всем: /testemail")
+    await update.effective_message.reply_text("\n".join(lines) + note)
 
 
 async def remove_email(update: Update, context: ContextTypes.DEFAULT_TYPE):

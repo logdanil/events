@@ -200,6 +200,22 @@ async def test_addemail_command_validation(tmp_db):
 
 
 @pytest.mark.asyncio
+async def test_addemail_batch(tmp_db):
+    update = make_update()
+    await bot.add_email(update, make_context(["a@x.ru", "b@y.ru,", "c@z.ru", "мусор"]))
+    text = _text(update)
+    assert "Добавлено адресов: 3" in text
+    assert {r["email"] for r in db.list_email_recipients()} == {"a@x.ru", "b@y.ru", "c@z.ru"}
+    assert "Не похоже на адреса" in text and "мусор" in text
+    # Повторная пачка: дубликаты не создаются.
+    update2 = make_update()
+    await bot.add_email(update2, make_context(["a@x.ru", "new@corp.ru"]))
+    text2 = _text(update2)
+    assert "Добавлено адресов: 1" in text2 and "Уже были в списке: a@x.ru" in text2
+    assert len(db.list_email_recipients()) == 4
+
+
+@pytest.mark.asyncio
 async def test_emails_denied_for_non_admin(tmp_db):
     db.add_subscriber(555)
     for handler in (bot.add_email, bot.remove_email, bot.emails, bot.test_email_cmd):
