@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 import feedparser
 import httpx
 
-from app import db
+from app import db, health
 from app.config import settings
 
 log = logging.getLogger(__name__)
@@ -74,9 +74,15 @@ async def fetch_source(client: httpx.AsyncClient, source: dict) -> list[dict]:
         response.raise_for_status()
         publications = await asyncio.to_thread(parse_feed, response.content, source)
         db.mark_source_checked(source["id"])
+        alert = health.check_source(source, None)
+        if alert:
+            health.pending_alerts.append(alert)
         return publications
     except Exception as exc:
         db.mark_source_checked(source["id"], error=f"{type(exc).__name__}: {exc}"[:300])
+        alert = health.check_source(source, f"{type(exc).__name__}: {exc}")
+        if alert:
+            health.pending_alerts.append(alert)
         log.warning("RSS-источник %s недоступен: %s: %s", source["name"], type(exc).__name__, exc)
         return []
 

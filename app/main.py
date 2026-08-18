@@ -9,7 +9,7 @@ from pathlib import Path
 from telegram import Update
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
-from app import db, emailer, formatters, llm, matcher
+from app import db, emailer, formatters, health, llm, matcher
 from app.bot import (
     start, show_id, list_assets, add_asset, add_source, remove_asset,
     set_interval, pause, resume, digest, status, setup_commands,
@@ -18,7 +18,7 @@ from app.bot import (
     match_test, unmatched_cmd, match_cmd, ignore_publication, set_id_cmd, rematch,
     queue_cmd, delete_test, delete_event_cmd, add_user, remove_user, users,
     reports_cmd, scans_history, articles,
-    add_email, remove_email, emails, test_email_cmd,
+    add_email, remove_email, emails, test_email_cmd, export_recipients, import_users,
 )
 from app.config import settings
 from app.formatters import MSK
@@ -47,9 +47,12 @@ async def send_events(app: Application, events: list[dict]) -> None:
                     app.bot, settings.admin_telegram_id, text, reply_markup=markup),
                 what=f"Telegram send [{event['asset_code']}]",
             )
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to deliver event %s, will retry on next scan", event["fingerprint"])
+            a = health.check_delivery("telegram", str(settings.admin_telegram_id), exc)
+            if a: health.pending_alerts.append(a)
             continue
+        health.check_delivery("telegram", str(settings.admin_telegram_id), None)
         # sent_at ставится по доставке администратору; сбой у отдельного подписчика
         # (заблокировал бота и т.п.) не должен вызывать повторную рассылку всем.
         db.mark_sent(event["fingerprint"])
@@ -63,8 +66,12 @@ async def send_events(app: Application, events: list[dict]) -> None:
                         app.bot, chat_id, text, reply_markup=markup),
                     what=f"Telegram send subscriber {chat_id}",
                 )
-            except Exception:
+            except Exception as exc:
                 log.warning("Не удалось доставить событие подписчику %s", chat_id)
+                a = health.check_delivery("telegram", str(chat_id), exc)
+                if a: health.pending_alerts.append(a)
+            else:
+                health.check_delivery("telegram", str(chat_id), None)
 
 
 async def event_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -82,6 +89,26 @@ async def event_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await query.message.reply_text(f"Событие #{event_id} не найдено.")
         return
     await reply_html(query.message, formatters.format_event_full(e, db.get_asset(e["asset_code"])))
+
+
+async def notify_health(bot, extra_alerts: list[dict] | None = None) -> None:
+    """Отправляет администратору накопленные алерты здоровья и сообщения о
+    восстановлении. Дедупликация и cooldown — внутри health.report()."""
+    alerts, resolved = health.drain()
+    alerts += extra_alerts or []
+    if not settings.admin_telegram_id:
+        return
+    for a in alerts:
+        try:
+            await send_html_message(bot, settings.admin_telegram_id, health.format_alert(a),
+                                    silent=(a.get("severity") == "info"))
+        except Exception:
+            log.exception("Не удалось отправить health-алерт")
+    for r in resolved:
+        try:
+            await send_html_message(bot, settings.admin_telegram_id, health.format_resolved(r), silent=True)
+        except Exception:
+            log.exception("Не удалось отправить сообщение о восстановлении")
 
 
 async def _pin_report(bot, chat_id: int, message_id: int) -> None:
@@ -114,16 +141,16 @@ async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             # По расписанию опрашиваются только источники с истёкшим refresh_interval.
             events = await monitor.scan_all(due_only=True, stats=stats)
-        except Exception:
+        except Exception as exc:
             log.exception("Scheduled scan failed")
-            if reports_on and settings.admin_telegram_id:
-                try:
-                    await send_html_message(context.application.bot, settings.admin_telegram_id,
-                                            "❌ Плановая проверка завершилась ошибкой. Подробности в логах.")
-                except Exception:
-                    log.exception("Не удалось отправить отчёт об ошибке")
+            a = health.report("pipeline", "scan_crashed",
+                              f"Плановая проверка упала с ошибкой {type(exc).__name__}: {str(exc)[:200]}",
+                              severity="critical")
+            await notify_health(context.application.bot, [a] if a else None)
             return
+        health.resolve("pipeline", "scan_crashed")
         await send_events(context.application, events)
+        await notify_health(context.application.bot, health.check_scan_totals(stats))
     # Отчёт о проверке (переключается командой /reports): события отправляются всегда,
     # сводка — только если отчёты включены. Получают все: администратор и подписчики.
     if reports_on:
@@ -163,11 +190,18 @@ async def _run_manual_scan(update: Update, context: ContextTypes.DEFAULT_TYPE,
         started_at = datetime.now(MSK)
         try:
             events = await monitor.scan_all(progress=progress, stats=stats, force_full=force_full)
-        except Exception:
+        except Exception as exc:
             log.exception("Manual scan failed")
-            await progress_message.edit_text("Проверка завершилась ошибкой. Подробности в логах сервиса.")
+            await progress_message.edit_text(
+                f"Проверка завершилась ошибкой: {type(exc).__name__}: {str(exc)[:200]}")
+            a = health.report("pipeline", "scan_crashed",
+                              f"Ручная проверка упала: {type(exc).__name__}: {str(exc)[:200]}",
+                              severity="critical")
+            await notify_health(context.application.bot, [a] if a else None)
             return
+        health.resolve("pipeline", "scan_crashed")
         await send_events(context.application, events)
+        await notify_health(context.application.bot, health.check_scan_totals(stats))
     summary = formatters.format_scan_summary(stats, started_at=started_at,
                                              finished_at=datetime.now(MSK), new_events=events)
     try:
@@ -364,8 +398,11 @@ async def build_daily_summary() -> str:
             _SUMMARY_PROMPT + json.dumps(prompt_payload, ensure_ascii=False))
         db.record_llm_usage(monitor.llm.name, monitor.llm.model, usage.calls,
                             usage.input_tokens, usage.output_tokens, usage.cost_usd, 0)
-    except Exception:
+        health.check_llm_health(True)
+    except Exception as exc:
         log.exception("Gemini-саммари не удалось, отправляю только цифры")
+        a = health.check_llm_health(False, f"{type(exc).__name__}: {exc}")
+        if a: health.pending_alerts.append(a)
     return formatters.format_daily_summary(data, narrative)
 
 
@@ -381,8 +418,60 @@ async def send_daily_summary(context: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception:
             log.warning("Не удалось отправить дневное саммари получателю %s", chat_id)
     now = datetime.now(MSK)
-    await emailer.send_email(
-        f"🗞 Итоги дня мониторинга — {now.day:02d}.{now.month:02d}.{now.year}", summary)
+    if emailer.is_configured() and db.list_email_recipients():
+        ok = await emailer.send_email(
+            f"🗞 Итоги дня мониторинга — {now.day:02d}.{now.month:02d}.{now.year}", summary)
+        a = health.check_delivery("email", "daily_summary",
+                                  None if ok else RuntimeError("отправка не удалась, см. логи"))
+        if a: health.pending_alerts.append(a)
+    await notify_health(context.application.bot)
+
+
+async def startup_selfcheck(app: Application) -> None:
+    """После рестарта: сообщить администратору о состоянии базы и открытых проблемах.
+    Пустая база при заданном DB_PATH — признак того, что данные не персистентны."""
+    from pathlib import Path as _P
+    stats = db.db_stats()
+    subs = len(db.list_subscribers())
+    mails = len(db.list_email_recipients())
+    lines = ["🔄 <b>Сервис перезапущен</b>",
+             f"База: <code>{stats['path']}</code>",
+             f"Активов: {stats['assets']} · событий: {stats['events']} · проверок в истории: {stats['scan_runs']}",
+             f"Подписчиков TG: {subs} · email-адресов: {mails}"]
+    on_volume = _P(settings.db_path).is_absolute() and str(settings.db_path).startswith("/data")
+    if not on_volume:
+        lines.append("⚠️ DB_PATH не указывает на /data — на Railway база НЕ переживёт деплой. "
+                     "Подключите Volume и задайте DB_PATH=/data/monitor.db.")
+    if stats["scan_runs"] == 0 and subs == 0:
+        lines.append("⚠️ База пустая: похоже, это первый запуск или данные были потеряны. "
+                     "Проверьте /users и /emails, при необходимости добавьте получателей заново.")
+    open_ = health.open_incidents()
+    if open_:
+        lines.append(f"Открытых проблем: {len(open_)} — /health")
+    try:
+        await send_html_message(app.bot, settings.admin_telegram_id, "\n".join(lines), silent=True)
+    except Exception:
+        log.exception("Не удалось отправить стартовый отчёт")
+
+
+async def watchdog(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Сторожевой таймер: раз в 15 минут проверяет, что плановые проверки живы,
+    и досылает накопленные алерты (например, из рассылок)."""
+    interval = int(db.get_setting("interval_minutes", str(settings.scan_interval_minutes)))
+    if db.get_setting("paused", "0") == "1":
+        health.resolve("scheduler", "stale")
+        return
+    a = health.check_scheduler(interval)
+    await notify_health(context.application.bot, [a] if a else None)
+
+
+async def health_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/health — состояние сервиса и открытые проблемы."""
+    from app.bot import guard
+    if not await guard(update):
+        return
+    interval = int(db.get_setting("interval_minutes", str(settings.scan_interval_minutes)))
+    await reply_html(update.effective_message, health.format_health_report(interval))
 
 
 async def summary_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -633,10 +722,31 @@ async def post_init(app: Application) -> None:
     if not settings.admin_telegram_id:
         log.warning("ADMIN_TELEGRAM_ID не задан — автоматические проверки не запланированы")
         return
+    # Стартовая самопроверка: предупреждаем администратора, если база выглядит новой
+    # (0 подписчиков и 0 проверок) — так выглядит потеря volume при деплое.
+    await startup_selfcheck(app)
     interval = int(db.get_setting("interval_minutes", str(settings.scan_interval_minutes)))
     app.job_queue.run_repeating(scheduled_scan, interval=interval * 60, first=interval * 60, name="scheduled_scan")
     app.job_queue.run_daily(send_daily_summary, time=dt_time(19, 0, tzinfo=MSK), name="daily_summary")
+    app.job_queue.run_repeating(watchdog, interval=15 * 60, first=15 * 60, name="watchdog")
     log.info("Bot initialized with %s minute interval; daily summary at 19:00 MSK", interval)
+
+
+async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Необработанное исключение в команде: логируем, отвечаем пользователю,
+    администратору — health-алерт (с дедупликацией по типу ошибки)."""
+    err = context.error
+    log.exception("Необработанная ошибка в обработчике", exc_info=err)
+    try:
+        if isinstance(update, Update) and update.effective_message:
+            await update.effective_message.reply_text(
+                "Команда завершилась ошибкой — администратор уведомлён.")
+    except Exception:
+        pass
+    a = health.report("bot", f"handler:{type(err).__name__}",
+                      f"Ошибка в обработчике Telegram: {type(err).__name__}: {str(err)[:200]}",
+                      severity="warning")
+    await notify_health(context.application.bot, [a] if a else None)
 
 
 def validate_settings() -> None:
@@ -695,6 +805,9 @@ def main() -> None:
     app.add_handler(CommandHandler("reports", reports_cmd))
     app.add_handler(CommandHandler("testbroadcast", test_broadcast))
     app.add_handler(CommandHandler("summary", summary_cmd))
+    app.add_handler(CommandHandler("health", health_cmd))
+    app.add_handler(CommandHandler("exportusers", export_recipients))
+    app.add_handler(CommandHandler("importusers", import_users))
     app.add_handler(CommandHandler("addemail", add_email))
     app.add_handler(CommandHandler("removeemail", remove_email))
     app.add_handler(CommandHandler("emails", emails))
@@ -702,6 +815,7 @@ def main() -> None:
     app.add_handler(CommandHandler("scans", scans_history))
     app.add_handler(CommandHandler("articles", articles))
     app.add_handler(CallbackQueryHandler(event_callback, pattern=r"^event:\d+$"))
+    app.add_error_handler(on_error)
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":

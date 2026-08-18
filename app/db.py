@@ -98,6 +98,19 @@ CREATE TABLE IF NOT EXISTS subscribers (
   name TEXT,
   added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS health_incidents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  component TEXT NOT NULL,
+  key TEXT NOT NULL,
+  severity TEXT NOT NULL DEFAULT 'warning',
+  message TEXT,
+  first_seen TEXT NOT NULL,
+  last_seen TEXT NOT NULL,
+  occurrences INTEGER NOT NULL DEFAULT 1,
+  notified_at TEXT,
+  resolved_at TEXT,
+  UNIQUE(component, key)
+);
 CREATE TABLE IF NOT EXISTS email_recipients (
   email TEXT PRIMARY KEY COLLATE NOCASE,
   name TEXT,
@@ -189,6 +202,7 @@ _EVENT_COLUMNS = {
     "is_test": "INTEGER NOT NULL DEFAULT 0",
 }
 _SCAN_RUN_COLUMNS = {"errors": "INTEGER", "stats_json": "TEXT"}
+_SOURCE_COLUMNS = {"fail_streak": "INTEGER NOT NULL DEFAULT 0"}
 # Нормализованная модель базового актива: контракт МосБиржи — лишь один из идентификаторов.
 _ASSET_COLUMNS = {
     "underlying_ticker": "TEXT", "issuer_name": "TEXT", "fund_provider": "TEXT",
@@ -365,6 +379,7 @@ def init_db() -> None:
         _migrate_columns(conn, "scan_runs", _SCAN_RUN_COLUMNS)
         _migrate_columns(conn, "assets", _ASSET_COLUMNS)
         _migrate_columns(conn, "processed_articles", _PROCESSED_COLUMNS)
+        _migrate_columns(conn, "source_defs", _SOURCE_COLUMNS)
         _migrate_sources(conn)
         _seed_default_sources(conn)
         _enrich_assets(conn)

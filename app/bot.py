@@ -45,6 +45,9 @@ HELP = """<b>Мониторинг корпоративных событий</b>
 /removeuser ID — отписать
 /users — список подписчиков
 /testbroadcast — тестовая рассылка всем с отчётом о доставке
+/exportusers — резервная копия всех получателей (TG + email) одной командой
+/importusers … — восстановить TG-подписчиков из резервной копии
+/health — здоровье сервиса: источники, LLM, планировщик, доставка
 
 Email-дублирование (события + дневное саммари):
 /addemail адрес [имя] — добавить почту в рассылку
@@ -462,6 +465,42 @@ async def emails(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for r in recipients:
         lines.append(f"• {r['email']}" + (f" — {r['name']}" if r["name"] else ""))
     lines.append("SMTP: " + ("настроен ✅" if emailer.is_configured() else "НЕ настроен ⚠️ (см. .env)"))
+    await update.effective_message.reply_text("\n".join(lines))
+
+
+async def export_recipients(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/exportusers — все получатели одной строкой-командой для восстановления."""
+    if not await guard(update): return
+    subs = db.list_subscribers()
+    mails = db.list_email_recipients()
+    lines = ["Резервная копия получателей. Сохраните это сообщение: если база когда-нибудь "
+             "окажется пустой, отправьте команды ниже боту.", ""]
+    if subs:
+        lines.append("/importusers " + " ".join(f"{s['chat_id']}:{(s['name'] or '').replace(' ', '_')}"
+                                                if s['name'] else str(s['chat_id']) for s in subs))
+    if mails:
+        lines.append("/addemail " + " ".join(m["email"] for m in mails))
+    if not subs and not mails:
+        lines.append("Получателей нет.")
+    await update.effective_message.reply_text("\n".join(lines))
+
+
+async def import_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/importusers 123:Имя 456 789:Иван_Петров — восстановить TG-подписчиков пачкой."""
+    if not await guard(update): return
+    added, skipped, bad = [], [], []
+    for token in context.args:
+        chat_id, _, name = token.partition(":")
+        if not chat_id.lstrip("-").isdigit():
+            bad.append(token)
+            continue
+        ok = db.add_subscriber(int(chat_id), name.replace("_", " ") or None)
+        (added if ok else skipped).append(chat_id)
+    lines = [f"Подписчиков добавлено: {len(added)}"]
+    if skipped: lines.append(f"Уже были: {', '.join(skipped)}")
+    if bad: lines.append(f"Пропущено (не ID): {', '.join(bad[:5])}")
+    if not context.args:
+        lines = ["Формат: /importusers 123456:Имя 789012 (данные из /exportusers)"]
     await update.effective_message.reply_text("\n".join(lines))
 
 
