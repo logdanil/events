@@ -127,3 +127,58 @@ def sync_from_md(path: str | Path) -> dict:
         log.info("В базе есть активы, отсутствующие в md (остаются под мониторингом): %s",
                  ", ".join(report["extra_in_db"]))
     return report
+
+
+# --- Резервные источники: каналы, которые по устройству не блокируют ботов -------
+
+_GOOGLE_NEWS = "https://news.google.com/rss/search?q={q}+when:3d&hl=en-US&gl=US&ceid=US:en"
+_SEC_BY_CIK = ("https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik}"
+               "&type=&dateb=&owner=include&count=40&output=atom")
+_CORP_TERMS = "(split OR dividend OR delisting OR merger OR acquisition OR listing OR spin-off OR tender OR ADR)"
+
+
+_COMMODITY_TERMS = "(contract OR specification OR exchange OR delivery OR settlement OR notice)"
+
+
+def _news_query(asset: dict) -> str:
+    """Запрос Google News: для бумаг — точное имя + тикер + корпоративные термины;
+    для сырья (ASSET) — простой запрос по названию контракта + биржевые термины
+    (корпоративные термины для LME/CME неуместны и дают пустую выдачу)."""
+    from urllib.parse import quote_plus
+    name = re.sub(r"\s*\([^)]*\)\s*$", "", asset["name"]).strip()
+    name = re.sub(r"^(Американские депозитарные расписки на акции|Акции)\s+", "", name, flags=re.I)
+    if asset.get("instrument_type") == "ASSET":
+        # «LBMA precious metal prices (…)» слишком длинно — берём до запятой/скобки
+        short = re.split(r"[,(]", name)[0].strip()
+        short = short.replace(" futures", "").replace(" Futures", "").replace(" Index", "")
+        return quote_plus(f"{short} futures {_COMMODITY_TERMS}")
+    parts = [f'"{name}"']
+    ticker = asset.get("underlying_ticker")
+    if ticker and len(ticker) >= 3:
+        parts.append(ticker)
+    return quote_plus(" OR ".join(parts) + " " + _CORP_TERMS)
+
+
+def ensure_backup_sources() -> dict:
+    """Для каждого актива гарантирует резервные каналы:
+    - SEC EDGAR по CIK (официальные филинги эмитента/фонда) — если CIK известен;
+    - Google News RSS по имени и тикеру — для всех.
+    Идемпотентно: существующие источники не трогаются."""
+    report = {"sec_added": 0, "news_added": 0}
+    for asset in db.list_assets():
+        existing = {s["url"] for s in asset.get("sources", [])}
+        if asset.get("cik"):
+            url = _SEC_BY_CIK.format(cik=str(asset["cik"]).zfill(10))
+            if url not in existing:
+                db.add_source(asset["code"], url, kind="official", source_type="SEC",
+                              refresh_interval=60)
+                report["sec_added"] += 1
+        url = _GOOGLE_NEWS.format(q=_news_query(asset))
+        if url not in existing:
+            db.add_source(asset["code"], url, kind="news", source_type="NEWS",
+                          refresh_interval=60)
+            report["news_added"] += 1
+    if report["sec_added"] or report["news_added"]:
+        log.info("Резервные источники: SEC по CIK +%d, Google News +%d",
+                 report["sec_added"], report["news_added"])
+    return report

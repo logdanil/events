@@ -49,9 +49,18 @@ def parse_links(html: str, source: dict) -> list[dict]:
     return publications
 
 
+def request_headers(source: dict) -> dict:
+    """SEC требует контактный User-Agent; остальные сайты лучше отвечают браузерному."""
+    if source.get("type") == "SEC" or "sec.gov" in source.get("url", ""):
+        return {"User-Agent": settings.user_agent, "Accept": "*/*"}
+    return {"User-Agent": settings.browser_user_agent,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9"}
+
+
 async def fetch_source(client: httpx.AsyncClient, source: dict) -> list[dict]:
     try:
-        response = await client.get(source["url"], headers={"User-Agent": settings.user_agent},
+        response = await client.get(source["url"], headers=request_headers(source),
                                     follow_redirects=True, timeout=20)
         response.raise_for_status()
         publications = await asyncio.to_thread(parse_links, response.text, source)

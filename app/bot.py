@@ -29,6 +29,8 @@ HELP = """<b>Мониторинг корпоративных событий</b>
 /add CODE | TYPE | NAME | АЛИАСЫ — добавить актив (алиасы через запятую, необязательны)
 /alias АКТИВ | АЛИАС — добавить идентификатор к активу
 /addsource АКТИВ | URL — добавить источник
+/sources [АКТИВ] — состояние источников, активы без покрытия
+/disablesource ID — отключить мёртвый источник
 /remove АКТИВ — удалить актив
 /interval MINUTES — изменить период
 /pause — остановить автоматические проверки
@@ -632,6 +634,54 @@ async def users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for s in subs:
         lines.append(f"• {s['chat_id']}{f' — {s['name']}' if s['name'] else ''} (с {s['added_at'][:10]})")
     await update.effective_message.reply_text("\n".join(lines))
+
+
+async def sources_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/sources [АКТИВ] — источники и их состояние; без аргумента — сводка по всем."""
+    if not await guard(update): return
+    from app import health
+    all_sources = db.list_source_defs(enabled_only=False)
+    if context.args:
+        asset = await resolve_or_reply(update, " ".join(context.args))
+        if not asset: return
+        own = [s for s in all_sources if asset["code"] in s["subscribers"]]
+        lines = [f"Источники {asset['code']} ({len(own)}):"]
+        for s in own:
+            state = ("⛔ отключён" if not s["enabled"] else
+                     f"❌ сбоев подряд: {s.get('fail_streak') or 0}" if (s.get("fail_streak") or 0) >= health.SOURCE_FAIL_THRESHOLD
+                     else "✅")
+            lines.append(f"{state} [{s['type']}] {s['name'][:40]}\n   {s['url'][:90]}")
+        await update.effective_message.reply_text("\n".join(lines), disable_web_page_preview=True)
+        return
+    enabled = [s for s in all_sources if s["enabled"]]
+    failing = [s for s in enabled if (s.get("fail_streak") or 0) >= health.SOURCE_FAIL_THRESHOLD]
+    by_type = {}
+    for s in enabled:
+        by_type[s["type"]] = by_type.get(s["type"], 0) + 1
+    # Активы без единого рабочего источника — главный риск пропуска.
+    uncovered = []
+    for a in db.list_assets(enabled_only=True):
+        working = [s for s in a["sources"] if (s.get("fail_streak") or 0) < health.SOURCE_FAIL_THRESHOLD]
+        if not working:
+            uncovered.append(a["code"])
+    lines = [f"Источников: {len(enabled)} активных, {len(all_sources) - len(enabled)} отключено",
+             "По типам: " + ", ".join(f"{t}: {n}" for t, n in sorted(by_type.items())),
+             f"Стабильно недоступны: {len(failing)}",
+             "Активы без рабочих источников: " + (", ".join(uncovered) if uncovered else "нет ✅"),
+             "", "Подробно по активу: /sources АКТИВ · отключить: /disablesource ID"]
+    await update.effective_message.reply_text("\n".join(lines))
+
+
+async def disable_source(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await guard(update): return
+    try:
+        source_id = int(context.args[0])
+    except (IndexError, ValueError):
+        await update.effective_message.reply_text("Формат: /disablesource ID (ID виден в /sources АКТИВ)")
+        return
+    with db.connect() as conn:
+        n = conn.execute("UPDATE source_defs SET enabled=0 WHERE id=?", (source_id,)).rowcount
+    await update.effective_message.reply_text("Источник отключён." if n else "Источник не найден.")
 
 
 async def dbstats(update: Update, context: ContextTypes.DEFAULT_TYPE):

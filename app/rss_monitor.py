@@ -63,13 +63,30 @@ def parse_feed(content: bytes | str, source: dict) -> list[dict]:
                 pub["form_type"] = m.group("form")
                 pub["sec_filer"] = m.group("filer").strip()
                 pub["sec_cik"] = m.group("cik")
+            else:
+                # Персональная лента эмитента (…getcompany&CIK=…): filer в заголовке
+                # отсутствует, CIK берём из URL источника — матчинг по CIK детерминирован.
+                cik_m = re.search(r"[?&]CIK=0*(\d+)", source["url"])
+                if cik_m:
+                    pub["sec_cik"] = cik_m.group(1)
+                    form_m = re.match(r"^\s*([0-9A-Z][0-9A-Z\-/]{0,9}?)\s+-\s", title)
+                    pub["form_type"] = form_m.group(1) if form_m else title[:10].strip()
         publications.append(pub)
     return publications
 
 
+def request_headers(source: dict) -> dict:
+    """SEC требует контактный User-Agent; остальные сайты лучше отвечают браузерному."""
+    if source.get("type") == "SEC" or "sec.gov" in source.get("url", ""):
+        return {"User-Agent": settings.user_agent, "Accept": "*/*"}
+    return {"User-Agent": settings.browser_user_agent,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9"}
+
+
 async def fetch_source(client: httpx.AsyncClient, source: dict) -> list[dict]:
     try:
-        response = await client.get(source["url"], headers={"User-Agent": settings.user_agent},
+        response = await client.get(source["url"], headers=request_headers(source),
                                     follow_redirects=True, timeout=20)
         response.raise_for_status()
         publications = await asyncio.to_thread(parse_feed, response.content, source)

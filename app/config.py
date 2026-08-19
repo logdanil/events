@@ -37,6 +37,13 @@ class Settings:
     email_from: str = os.getenv("EMAIL_FROM", "")
     # SEC и ряд бирж требуют User-Agent с контактом.
     user_agent: str = os.getenv("USER_AGENT", "corporate-events-monitor/1.0 (admin contact in .env)")
+    # Большинство IR-сайтов и бирж (Nasdaq, JD, CME, Euronext…) сбрасывают соединение
+    # с «ботовским» User-Agent, но нормально отвечают браузерному. SEC — наоборот,
+    # требует контакт в UA. Поэтому для HTML/IR используется браузерный UA.
+    browser_user_agent: str = os.getenv(
+        "BROWSER_USER_AGENT",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
     llm_batch_size: int = int(os.getenv("LLM_BATCH_SIZE", "20"))
 
 settings = Settings()

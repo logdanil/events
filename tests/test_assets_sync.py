@@ -64,3 +64,32 @@ def test_sync_adds_missing_and_is_idempotent(tmp_db):
     report2 = assets_sync.sync_from_md(MD)
     assert report2["assets_added"] == [] and report2["sources_added"] == 0
     assert len(db.get_asset("TSM")["sources"]) == 3
+
+def test_backup_sources_for_every_asset(tmp_db):
+    db.upsert_asset("TSM", "Американские депозитарные расписки на акции Taiwan Semiconductor", "ADR")
+    db.set_asset_field("TSM", "cik", "1046179")
+    db.set_asset_field("TSM", "underlying_ticker", "TSM")
+    db.upsert_asset("ALUM", "LME Aluminium", "ASSET")
+    report = assets_sync.ensure_backup_sources()
+    assert report["sec_added"] == 1 and report["news_added"] == 2
+    tsm_urls = [s["url"] for s in db.get_asset("TSM")["sources"]]
+    assert any("sec.gov" in u and "CIK=0001046179" in u for u in tsm_urls)
+    assert any("news.google.com/rss/search" in u and "Taiwan+Semiconductor" in u for u in tsm_urls)
+    alum_urls = [s["url"] for s in db.get_asset("ALUM")["sources"]]
+    assert not any("sec.gov" in u for u in alum_urls), "без CIK SEC-лента не добавляется"
+    assert any("news.google.com" in u for u in alum_urls)
+    # Идемпотентность.
+    assert assets_sync.ensure_backup_sources() == {"sec_added": 0, "news_added": 0}
+
+
+def test_per_company_sec_feed_sets_cik_from_url():
+    from app import rss_monitor
+    feed = """<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
+    <entry><title>6-K  - Report of foreign issuer [Rules 13a-16 and 15d-16]</title>
+    <link href="https://www.sec.gov/Archives/edgar/data/1046179/000110465926000001/0001.htm"/>
+    <updated>2026-08-18T10:00:00-04:00</updated></entry></feed>"""
+    source = {"id": 9, "name": "SEC TSM", "type": "SEC", "subscribers": ["TSM"],
+              "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001046179&output=atom"}
+    pubs = rss_monitor.parse_feed(feed, source)
+    assert pubs[0]["sec_cik"] == "1046179"
+    assert pubs[0]["form_type"] == "6-K"

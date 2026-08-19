@@ -19,6 +19,7 @@ from app.bot import (
     queue_cmd, delete_test, delete_event_cmd, add_user, remove_user, users,
     reports_cmd, scans_history, articles,
     add_email, remove_email, emails, test_email_cmd, export_recipients, import_users,
+    sources_cmd, disable_source,
 )
 from app.config import settings
 from app.formatters import MSK
@@ -717,6 +718,8 @@ async def post_init(app: Application) -> None:
     underlyings = root / "underlyings_sources.md"
     if underlyings.exists():
         assets_sync.sync_from_md(underlyings)
+    # Резервные каналы для каждого актива (SEC по CIK, Google News) — не блокируются.
+    assets_sync.ensure_backup_sources()
     await setup_commands(app)
     app.bot_data["scheduled_scan"] = scheduled_scan
     if not settings.admin_telegram_id:
@@ -776,6 +779,8 @@ def main() -> None:
     app.add_handler(CommandHandler("add", add_asset))
     app.add_handler(CommandHandler("alias", add_alias_cmd))
     app.add_handler(CommandHandler("addsource", add_source))
+    app.add_handler(CommandHandler("sources", sources_cmd))
+    app.add_handler(CommandHandler("disablesource", disable_source))
     app.add_handler(CommandHandler("remove", remove_asset))
     app.add_handler(CommandHandler("interval", set_interval))
     app.add_handler(CommandHandler("pause", pause))

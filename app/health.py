@@ -121,6 +121,17 @@ def check_source(source: dict, error: str | None) -> dict | None:
                      (source["id"],))
         streak = conn.execute("SELECT fail_streak FROM source_defs WHERE id=?",
                               (source["id"],)).fetchone()[0]
+    # 404 — страница удалена: после порога отключаем источник, чтобы не висел в проблемах
+    # вечно (резервные каналы актива продолжают работать).
+    if streak >= SOURCE_FAIL_THRESHOLD and "404" in error:
+        with db.connect() as conn:
+            conn.execute("UPDATE source_defs SET enabled=0 WHERE id=?", (source["id"],))
+        resolve("source", key)
+        return report("source", f"disabled:{source['id']}",
+                      f"Источник «{source['name']}» отключён: страница не существует (404, {streak} раз). "
+                      f"Активы: {', '.join(source.get('subscribers') or []) or 'глобальный'}. "
+                      f"Если адрес изменился — добавьте новый через /addsource. URL: {source['url']}",
+                      severity="info")
     if streak >= SOURCE_FAIL_THRESHOLD:
         subscribers = ", ".join(source.get("subscribers") or []) or "глобальный"
         return report("source", key,
