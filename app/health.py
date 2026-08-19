@@ -132,6 +132,19 @@ def check_source(source: dict, error: str | None) -> dict | None:
                       f"Активы: {', '.join(source.get('subscribers') or []) or 'глобальный'}. "
                       f"Если адрес изменился — добавьте новый через /addsource. URL: {source['url']}",
                       severity="info")
+    # Стабильная антибот-блокировка (403): если у всех активов источника есть другой
+    # рабочий канал — отключаем источник и сообщаем один раз, вместо вечных алертов.
+    if streak >= SOURCE_FAIL_THRESHOLD * 3 and "403" in error and source.get("subscribers"):
+        if _assets_have_other_coverage(source):
+            with db.connect() as conn:
+                conn.execute("UPDATE source_defs SET enabled=0 WHERE id=?", (source["id"],))
+            resolve("source", key)
+            return report("source", f"muted:{source['id']}",
+                          f"Источник «{source['name']}» отключён: антибот-защита (403, {streak} проверок). "
+                          f"Активы {', '.join(source['subscribers'])} покрыты резервными каналами "
+                          f"(SEC/Google News/Tavily). Вернуть: включите вручную в базе или добавьте "
+                          f"рабочий URL через /addsource. URL: {source['url']}",
+                          severity="info")
     if streak >= SOURCE_FAIL_THRESHOLD:
         subscribers = ", ".join(source.get("subscribers") or []) or "глобальный"
         return report("source", key,
@@ -139,6 +152,20 @@ def check_source(source: dict, error: str | None) -> dict | None:
                       f"({error[:120]}). Активы: {subscribers}. URL: {source['url']}",
                       severity="warning")
     return None
+
+
+def _assets_have_other_coverage(source: dict) -> bool:
+    """У каждого актива-подписчика есть другой включённый источник без серии сбоев."""
+    with db.connect() as conn:
+        for code in source.get("subscribers", []):
+            row = conn.execute(
+                "SELECT COUNT(*) FROM asset_sources s JOIN source_defs d ON d.id=s.source_id "
+                "WHERE s.asset_code=? AND d.enabled=1 AND d.id != ? "
+                "AND COALESCE(d.fail_streak, 0) < ?",
+                (code, source["id"], SOURCE_FAIL_THRESHOLD)).fetchone()
+            if row[0] == 0:
+                return False
+    return True
 
 
 def check_scan_totals(stats) -> list[dict]:

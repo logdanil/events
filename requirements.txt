@@ -6,3 +6,4 @@ feedparser>=6.0
 rapidfuzz>=3.9
 tavily-python>=0.7
 pydantic>=2.8
+curl_cffi>=0.7
