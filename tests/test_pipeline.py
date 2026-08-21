@@ -199,3 +199,19 @@ async def test_pipeline_classify_and_event_dedup(tmp_db):
     assert saved2 == [] and stats.duplicates == 1
     # Статья запомнена в кэше с результатом классификации.
     assert db.article_seen(pub["url_hash"]) is True
+
+
+def test_regulatory_filings_bypass_keyword_filter(tmp_db):
+    """Form 25 (делистинг) и 497 не содержат ключевых слов в заголовке,
+    но обязаны доходить до сопоставления по CIK."""
+    db.upsert_asset("ALIBABA", "Alibaba Group Holding Ltd – ADR (BABA)", "ADR")
+    db.set_asset_field("ALIBABA", "cik", "1577552")
+    profiles = matcher.build_profiles(db.list_assets(enabled_only=True))
+    pub = {"url": "https://sec.gov/f/25", "title": "25-NSE - Alibaba Group Holding Ltd (0001577552) (Subject)",
+           "text": "", "published_at": None, "published_dt": None, "source": "SEC",
+           "subscribers": [], "sec_filer": "Alibaba Group Holding Ltd",
+           "sec_cik": "0001577552", "form_type": "25-NSE"}
+    stats = ScanStats()
+    kept = matcher.filter_publications([pub], profiles, lookback_days=3, stats=stats)
+    assert len(kept) == 1 and kept[0]["asset_codes"] == ["ALIBABA"], \
+        "филинг о делистинге не должен отсекаться keyword-фильтром"

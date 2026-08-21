@@ -404,7 +404,11 @@ def filter_publications(publications: list[dict], profiles: list[AssetProfile],
             continue
         if stats is not None:
             stats.new_after_cache += 1
-        if not has_corporate_keywords(p):
+        # Регуляторные филинги (SEC: 8-K, 6-K, Form 25, 497…) — корпоративные документы
+        # по определению: keyword-фильтр по заголовку к ним неприменим (в заголовке
+        # только код формы), решение принимают сопоставление по CIK и LLM.
+        is_regulatory = bool(p.get("sec_cik") or p.get("sec_filer") or p.get("form_type"))
+        if not is_regulatory and not has_corporate_keywords(p):
             db.remember_article(p.get("url", ""), uh, th, p.get("published_at"),
                                 p.get("source"), "skipped:no_keywords",
                                 status="keyword_filtered", title=p.get("title"))
