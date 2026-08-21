@@ -233,8 +233,8 @@ def _source_owned(pub: dict, code: str) -> bool:
     Глобальные фиды (SEC/Nasdaq, без подписчиков) владения не дают.
     Поисковые результаты (Tavily) — тоже: то, что мы искали по активу,
     не значит, что найденное о нём; для SEARCH обязательно текстовое совпадение."""
-    if pub.get("source_type") == "SEARCH":
-        return False
+    if pub.get("source_type") in ("SEARCH", "NEWS"):
+        return False  # поиск и новостные агрегаторы (Tavily, Google News) — не «свои» страницы
     subscribers = pub.get("subscribers") or []
     return code in subscribers and 0 < len(subscribers) <= 2
 
@@ -424,7 +424,8 @@ def filter_publications(publications: list[dict], profiles: list[AssetProfile],
             continue
         # Чужие публикации глобальных SEC/биржевых фидов и поисковый шум Tavily
         # без единого кандидата не засоряют пользовательскую очередь unmatched.
-        is_global_feed = not (p.get("subscribers") or []) or p.get("source_type") == "SEARCH"
+        is_global_feed = (not (p.get("subscribers") or [])
+                          or p.get("source_type") in ("SEARCH", "NEWS"))
         if is_global_feed and not results:
             if stats is not None:
                 stats.irrelevant_global += 1

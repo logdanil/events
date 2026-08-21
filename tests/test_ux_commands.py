@@ -309,3 +309,13 @@ async def test_pipetest_mock_creates_only_test_event(tmp_db, monkeypatch):
     assert db.recent_events() == [], "рабочий список событий пуст"
     test_events = db.recent_events(test_only=True)
     assert len(test_events) == 1 and test_events[0]["asset_code"] == "SPYF"
+
+def test_news_aggregator_feed_gives_no_ownership(tmp_db):
+    """Статья про SK Hynix из Google-ленты, подписанной на NASD, не должна лечь на NASD."""
+    db.upsert_asset("NASD", "Invesco QQQ Trust, Series 1 (QQQ)", "ETF", aliases=["QQQ"])
+    db.upsert_asset("HYNIX", "Акции SK Hynix", "SHARE", aliases=["SK Hynix"])
+    profiles = matcher.build_profiles(db.list_assets(enabled_only=True))
+    pub = {"title": "SK Hynix climbs 4% on record buyback", "text": "",
+           "source_type": "NEWS", "source": "Google News", "source_id": 77, "subscribers": ["NASD"]}
+    codes = matcher.match_assets(pub, profiles)
+    assert codes == ["HYNIX"], f"ожидали HYNIX по тексту, получили {codes}"

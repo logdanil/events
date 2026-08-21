@@ -136,11 +136,16 @@ async def test_llm_batching_splits_publications():
 
 # --- Дедупликация событий на выходе конвейера ---------------------------------
 
+def _future_date() -> str:
+    from datetime import date, timedelta
+    return (date.today() + timedelta(days=7)).isoformat()
+
+
 class SplitProvider(FakeProvider):
     async def classify_batch(self, items):
         results = [{"index": it["index"], "is_event": True, "event_type": "stock_split",
                     "severity": "critical", "confidence": 0.95, "status": "confirmed",
-                    "summary": "Дробление 1:5.", "event_date": "2026-07-21"} for it in items]
+                    "summary": "Дробление 1:5.", "event_date": _future_date()} for it in items]
         return results, LLMUsage(calls=1, input_tokens=100, output_tokens=10, cost_usd=0.001)
 
 

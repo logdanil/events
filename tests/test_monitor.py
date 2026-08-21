@@ -47,3 +47,20 @@ def test_normalize_event_from_llm_classification():
     assert '"1:5"' in event["key_parameters_json"]
     assert event["fingerprint"]
     assert float(event["confidence"]) == 0.95
+
+
+def test_stale_and_foreign_publications_rejected():
+    from datetime import date, timedelta
+    base = {"is_event": True, "event_type": "stock_split", "confidence": 0.9, "status": "confirmed"}
+    old = (date.today() - timedelta(days=55)).isoformat()
+    fresh = (date.today() - timedelta(days=2)).isoformat()
+    future = (date.today() + timedelta(days=30)).isoformat()
+    # Июньская статья в августе — устаревшая, даже если лента отдала её как новую.
+    ok, reason = classification_ok({**base, "publication_date": old})
+    assert ok is False and "устаревшая" in reason
+    # Свежая публикация — проходит; будущая дата события — тоже (ещё предстоит).
+    assert classification_ok({**base, "publication_date": fresh})[0] is True
+    assert classification_ok({**base, "event_date": future})[0] is True
+    # Модель сказала «не об этом активе» — отклоняем независимо от остального.
+    ok, reason = classification_ok({**base, "about_asset": False, "publication_date": fresh})
+    assert ok is False and "не об этом активе" in reason

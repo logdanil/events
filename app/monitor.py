@@ -29,6 +29,9 @@ from app import search_monitor
 log = logging.getLogger(__name__)
 
 MIN_CONFIDENCE = 0.72
+# Публикация старше этого срока (по дате публикации от модели) событием не считается:
+# агрегаторы переиндексируют старые статьи со свежей датой ленты.
+STALE_DAYS = 10
 # Окно семантической дедупликации: события одного типа по одному активу
 # в пределах окна считаются одним событием (пересказы не рассылаются повторно).
 EVENT_DEDUP_DAYS = 14
@@ -146,11 +149,36 @@ def split_sources(sources: list[dict]) -> tuple[list[dict], list[dict]]:
     return rss, html
 
 
+def _stale_reason(c: dict) -> str:
+    """Устаревшая публикация: дата публикации (или дата события в прошлом) старше STALE_DAYS."""
+    from datetime import date
+    for key in ("publication_date", "event_date"):
+        raw = c.get(key)
+        if not raw:
+            continue
+        try:
+            d = date.fromisoformat(str(raw)[:10])
+        except ValueError:
+            continue
+        age = (date.today() - d).days
+        if key == "event_date" and age < 0:
+            return ""  # событие в будущем — актуально
+        if age > STALE_DAYS:
+            return f"устаревшая публикация: {key} {d.isoformat()} ({age} дн. назад)"
+        return ""  # дата свежая — дальше не проверяем
+    return ""
+
+
 def classification_ok(c: dict, min_confidence: float = MIN_CONFIDENCE,
                       allow_rumors: bool = False) -> tuple[bool, str]:
     """Проверка классификации LLM. Возвращает (принято, причина отклонения)."""
+    if c.get("about_asset") is False:
+        return False, "публикация не об этом активе"
     if not c.get("is_event"):
         return False, "не событие"
+    stale = _stale_reason(c)
+    if stale:
+        return False, stale
     if c.get("event_type") not in EVENT_TYPES or c.get("event_type") == "other":
         return False, f"event_type «{c.get('event_type')}» вне перечня"
     try:
