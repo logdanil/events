@@ -432,6 +432,9 @@ async def startup_selfcheck(app: Application) -> None:
     """После рестарта: сообщить администратору о состоянии базы и открытых проблемах.
     Пустая база при заданном DB_PATH — признак того, что данные не персистентны."""
     from pathlib import Path as _P
+    restored = health.rehabilitate_sources()
+    for msg in restored:
+        log.info("Реабилитация: %s", msg)
     stats = db.db_stats()
     subs = len(db.list_subscribers())
     mails = len(db.list_email_recipients())
@@ -439,6 +442,8 @@ async def startup_selfcheck(app: Application) -> None:
              f"База: <code>{stats['path']}</code>",
              f"Активов: {stats['assets']} · событий: {stats['events']} · проверок в истории: {stats['scan_runs']}",
              f"Подписчиков TG: {subs} · email-адресов: {mails}"]
+    if restored:
+        lines.append("♻️ Возвращены в мониторинг: " + str(len(restored)) + " источников (обход антибот-защиты)")
     on_volume = _P(settings.db_path).is_absolute() and str(settings.db_path).startswith("/data")
     if not on_volume:
         lines.append("⚠️ DB_PATH не указывает на /data — на Railway база НЕ переживёт деплой. "

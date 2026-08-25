@@ -106,24 +106,30 @@ async def test_export_import_recipients(tmp_db):
     assert subs == {555: "Иван Петров", 777: None}
 
 
-def test_blocked_source_muted_when_assets_covered(tmp_db):
+def test_rehabilitate_muted_sources(tmp_db):
+    """Источники, отключённые старым авто-приглушением, возвращаются в мониторинг."""
+    db.upsert_asset("TSM", "Taiwan Semiconductor ADR", "ADR")
+    db.add_source("TSM", "https://pr.tsmc.com/english/news")
+    src = db.list_source_defs()[0]
+    with db.connect() as conn:
+        conn.execute("UPDATE source_defs SET enabled=0, fail_streak=16 WHERE id=?", (src["id"],))
+        conn.execute("INSERT INTO health_incidents (component, key, message, severity, "
+                     "first_seen, last_seen) VALUES ('source', ?, 'отключён', 'info', "
+                     "'2026-08-19', '2026-08-19')", (f"muted:{src['id']}",))
+    messages = health.rehabilitate_sources()
+    assert messages and "снова в мониторинге" in messages[0]
+    fresh = db.list_source_defs()[0]
+    assert fresh["enabled"] == 1 and not fresh.get("fail_streak")
+    assert health.rehabilitate_sources() == [], "повторный вызов ничего не трогает"
+
+
+def test_403_source_stays_enabled(tmp_db):
+    """403-источник не отключается: продолжаем проверять (обход по TLS-отпечаткам)."""
     db.upsert_asset("SONY", "Sony Group Corporation", "ADR")
-    db.add_source("SONY", "https://blocked.example.com/press")     # блокируемый
-    db.add_source("SONY", "https://backup.example.com/rss")        # рабочий резерв
+    db.add_source("SONY", "https://blocked.example.com/press")
+    db.add_source("SONY", "https://backup.example.com/rss")
     blocked = next(s for s in db.list_source_defs() if "blocked" in s["url"])
-    alert = None
-    for _ in range(health.SOURCE_FAIL_THRESHOLD * 3):
-        alert = health.check_source(blocked, "HTTPStatusError: Client error '403 Forbidden'") or alert
-    assert alert and alert["severity"] == "info" and "отключён" in alert["message"]
+    for _ in range(health.SOURCE_FAIL_THRESHOLD * 5):
+        health.check_source(blocked, "HTTPStatusError: Client error '403 Forbidden'")
     fresh = next(s for s in db.list_source_defs(enabled_only=False) if s["id"] == blocked["id"])
-    assert fresh["enabled"] == 0, "источник отключён — алерты прекращаются"
-
-
-def test_blocked_source_not_muted_without_coverage(tmp_db):
-    db.upsert_asset("LONELY", "Lonely Asset", "ASSET")
-    db.add_source("LONELY", "https://only.example.com/page")
-    only = next(s for s in db.list_source_defs() if "only.example" in s["url"])
-    for _ in range(health.SOURCE_FAIL_THRESHOLD * 3 + 2):
-        health.check_source(only, "HTTPStatusError: Client error '403 Forbidden'")
-    fresh = next(s for s in db.list_source_defs(enabled_only=False) if s["id"] == only["id"])
-    assert fresh["enabled"] == 1, "единственный источник актива не отключается автоматически"
+    assert fresh["enabled"] == 1

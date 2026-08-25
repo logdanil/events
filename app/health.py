@@ -132,19 +132,6 @@ def check_source(source: dict, error: str | None) -> dict | None:
                       f"Активы: {', '.join(source.get('subscribers') or []) or 'глобальный'}. "
                       f"Если адрес изменился — добавьте новый через /addsource. URL: {source['url']}",
                       severity="info")
-    # Стабильная антибот-блокировка (403): если у всех активов источника есть другой
-    # рабочий канал — отключаем источник и сообщаем один раз, вместо вечных алертов.
-    if streak >= SOURCE_FAIL_THRESHOLD * 3 and "403" in error and source.get("subscribers"):
-        if _assets_have_other_coverage(source):
-            with db.connect() as conn:
-                conn.execute("UPDATE source_defs SET enabled=0 WHERE id=?", (source["id"],))
-            resolve("source", key)
-            return report("source", f"muted:{source['id']}",
-                          f"Источник «{source['name']}» отключён: антибот-защита (403, {streak} проверок). "
-                          f"Активы {', '.join(source['subscribers'])} покрыты резервными каналами "
-                          f"(SEC/Google News/Tavily). Вернуть: включите вручную в базе или добавьте "
-                          f"рабочий URL через /addsource. URL: {source['url']}",
-                          severity="info")
     if streak >= SOURCE_FAIL_THRESHOLD:
         subscribers = ", ".join(source.get("subscribers") or []) or "глобальный"
         return report("source", key,
@@ -154,18 +141,35 @@ def check_source(source: dict, error: str | None) -> dict | None:
     return None
 
 
-def _assets_have_other_coverage(source: dict) -> bool:
-    """У каждого актива-подписчика есть другой включённый источник без серии сбоев."""
+# Сломанные у владельцев страницы → рабочие замены (применяется при старте).
+URL_FIXES = {
+    "https://www.ishares.com/uk/individual/en/products/251751/ishares-msci-emerging-markets-ucits-etf":
+        "https://www.ishares.com/us/products/239637/ishares-msci-emerging-markets-etf",
+}
+
+
+def rehabilitate_sources() -> list[str]:
+    """Возвращает в работу источники, отключённые старым авто-приглушением по 403
+    (обход через TLS-отпечатки теперь открывает большинство из них), и чинит URL
+    из URL_FIXES. Вызывается при старте. Возвращает список сообщений."""
+    messages = []
     with db.connect() as conn:
-        for code in source.get("subscribers", []):
-            row = conn.execute(
-                "SELECT COUNT(*) FROM asset_sources s JOIN source_defs d ON d.id=s.source_id "
-                "WHERE s.asset_code=? AND d.enabled=1 AND d.id != ? "
-                "AND COALESCE(d.fail_streak, 0) < ?",
-                (code, source["id"], SOURCE_FAIL_THRESHOLD)).fetchone()
-            if row[0] == 0:
-                return False
-    return True
+        rows = conn.execute(
+            "SELECT key FROM health_incidents WHERE key LIKE 'muted:%'").fetchall()
+        ids = [int(str(r[0]).split(":", 1)[1]) for r in rows]
+        for sid in ids:
+            cur = conn.execute(
+                "UPDATE source_defs SET enabled=1, fail_streak=0 WHERE id=? AND enabled=0", (sid,))
+            if cur.rowcount:
+                name = conn.execute("SELECT name FROM source_defs WHERE id=?", (sid,)).fetchone()
+                messages.append(f"источник «{name[0]}» снова в мониторинге (обход антибот-защиты)")
+        conn.execute("DELETE FROM health_incidents WHERE key LIKE 'muted:%'")
+        for old, new in URL_FIXES.items():
+            cur = conn.execute(
+                "UPDATE source_defs SET url=?, enabled=1, fail_streak=0 WHERE url=?", (new, old))
+            if cur.rowcount:
+                messages.append(f"URL источника заменён на рабочий: {new}")
+    return messages
 
 
 def check_scan_totals(stats) -> list[dict]:
