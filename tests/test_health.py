@@ -133,3 +133,19 @@ def test_403_source_stays_enabled(tmp_db):
         health.check_source(blocked, "HTTPStatusError: Client error '403 Forbidden'")
     fresh = next(s for s in db.list_source_defs(enabled_only=False) if s["id"] == blocked["id"])
     assert fresh["enabled"] == 1
+
+
+def test_url_fix_with_existing_duplicate(tmp_db, monkeypatch):
+    """Если рабочий URL уже есть в базе, сломанный источник выключается,
+    подписки переезжают — и это не роняет запуск (регресс краш-цикла на Railway)."""
+    db.upsert_asset("EM", "iShares MSCI Emerging Markets ETF", "ETF")
+    db.add_source("EM", "https://broken.example.com/page")
+    db.add_source("EM", "https://working.example.com/page")
+    monkeypatch.setattr(health, "URL_FIXES",
+                        {"https://broken.example.com/page": "https://working.example.com/page"})
+    messages = health.rehabilitate_sources()
+    assert messages and "заменён на рабочий" in messages[0]
+    rows = {s["url"]: s for s in db.list_source_defs(enabled_only=False)}
+    assert rows["https://broken.example.com/page"]["enabled"] == 0
+    assert rows["https://working.example.com/page"]["enabled"] == 1
+    assert health.rehabilitate_sources() == []

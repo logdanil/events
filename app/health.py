@@ -165,10 +165,26 @@ def rehabilitate_sources() -> list[str]:
                 messages.append(f"источник «{name[0]}» снова в мониторинге (обход антибот-защиты)")
         conn.execute("DELETE FROM health_incidents WHERE key LIKE 'muted:%'")
         for old, new in URL_FIXES.items():
-            cur = conn.execute(
-                "UPDATE source_defs SET url=?, enabled=1, fail_streak=0 WHERE url=?", (new, old))
-            if cur.rowcount:
-                messages.append(f"URL источника заменён на рабочий: {new}")
+            old_row = conn.execute("SELECT id, enabled FROM source_defs WHERE url=?", (old,)).fetchone()
+            if not old_row:
+                continue
+            new_row = conn.execute("SELECT id, enabled FROM source_defs WHERE url=?", (new,)).fetchone()
+            if new_row and not old_row[1] and new_row[1]:
+                continue  # уже починено ранее
+            if new_row:
+                # Рабочий URL уже есть отдельным источником: сломанный выключаем,
+                # его подписки переносим на рабочий (UNIQUE по url не даёт переименовать).
+                conn.execute("INSERT OR IGNORE INTO asset_sources (asset_code, source_id) "
+                             "SELECT asset_code, ? FROM asset_sources WHERE source_id=?",
+                             (new_row[0], old_row[0]))
+                conn.execute("UPDATE source_defs SET enabled=0 WHERE id=?", (old_row[0],))
+                conn.execute("UPDATE source_defs SET enabled=1, fail_streak=0 WHERE id=?",
+                             (new_row[0],))
+            else:
+                conn.execute("UPDATE source_defs SET url=?, enabled=1, fail_streak=0 WHERE id=?",
+                             (new, old_row[0]))
+            resolve("source", f"source:{old_row[0]}")
+            messages.append(f"сломанный URL заменён на рабочий: {new}")
     return messages
 
 
