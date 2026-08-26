@@ -110,7 +110,7 @@ def test_rehabilitate_muted_sources(tmp_db):
     """Источники, отключённые старым авто-приглушением, возвращаются в мониторинг."""
     db.upsert_asset("TSM", "Taiwan Semiconductor ADR", "ADR")
     db.add_source("TSM", "https://pr.tsmc.com/english/news")
-    src = db.list_source_defs()[0]
+    src = next(s for s in db.list_source_defs() if "pr.tsmc" in s["url"])
     with db.connect() as conn:
         conn.execute("UPDATE source_defs SET enabled=0, fail_streak=16 WHERE id=?", (src["id"],))
         conn.execute("INSERT INTO health_incidents (component, key, message, severity, "
@@ -118,7 +118,7 @@ def test_rehabilitate_muted_sources(tmp_db):
                      "'2026-08-19', '2026-08-19')", (f"muted:{src['id']}",))
     messages = health.rehabilitate_sources()
     assert messages and "снова в мониторинге" in messages[0]
-    fresh = db.list_source_defs()[0]
+    fresh = next(s for s in db.list_source_defs() if s["id"] == src["id"])
     assert fresh["enabled"] == 1 and not fresh.get("fail_streak")
     assert health.rehabilitate_sources() == [], "повторный вызов ничего не трогает"
 
@@ -191,7 +191,7 @@ async def test_transient_telegram_errors_not_reported(tmp_db):
 def test_rehabilitate_closes_stale_incidents(tmp_db, monkeypatch):
     db.upsert_asset("HYNIX", "Акции SK Hynix", "SHARE")
     db.add_source("HYNIX", "https://dead.example.com/news")
-    dead = db.list_source_defs()[0]
+    dead = next(s for s in db.list_source_defs() if "dead.example" in s["url"])
     with db.connect() as conn:
         conn.execute("UPDATE source_defs SET enabled=0 WHERE id=?", (dead["id"],))
     health.report("source", f"disabled:{dead['id']}", "страница не существует", severity="info")
