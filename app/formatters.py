@@ -46,6 +46,10 @@ EVENT_TYPE_RU = {
     "conversion": "Конвертация",
     "capital_return": "Возврат капитала",
     "name_change": "Изменение наименования",
+    "network_upgrade": "Обновление сети (хардфорк)",
+    "network_outage": "Остановка сети",
+    "halving": "Халвинг",
+    "token_burn": "Сжигание токенов",
 }
 
 SEVERITY_LABEL = {
@@ -75,8 +79,10 @@ _SEVERITY_RULES: list[tuple[str, tuple[str, ...]]] = [
         "фиксинг", "конвертац", "расчётной цены", "settlement", "размера контракта",
         "lot size", "единиц измерения", "масштабов цены", "базовой валюты",
         "redenomination", "экспирац", "спецификаци",
+        "network_outage", "outage", "остановка сети", "hard_fork", "hard fork",
     )),
     ("HIGH", (
+        "network_upgrade", "upgrade", "halving", "token_burn", "хардфорк", "халвинг",
         "tender", "выкуп", "rights issue", "дополнительный выпуск", "bonus",
         "эмисси", "методологи", "methodology", "принципов управления",
         "индекс", "index", "бенчмарк", "benchmark", "алгоритма определения цены",

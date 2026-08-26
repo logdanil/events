@@ -52,6 +52,19 @@ def parse_underlyings_md(path: str | Path) -> list[dict]:
     return [a for a in assets if a["name"]]
 
 
+# Криптоактивы (индексы МосБиржи на монеты): «эмитент» индекса — сама монета.
+# issuer_name даёт matcher'у точное совпадение по имени сети, тикер — по коду.
+CRYPTO_PROFILES = {
+    "BTC": {"issuer": "Bitcoin", "aliases": ["Биткоин", "MOEXBTC"], "query": '"Bitcoin" OR BTC'},
+    "ETH": {"issuer": "Ethereum", "aliases": ["Ether", "Эфир", "Эфириум", "MOEXETH"], "query": '"Ethereum" OR ETH'},
+    "SOL": {"issuer": "Solana", "aliases": ["Солана", "MOEXSOL"], "query": '"Solana" OR SOL'},
+    "XRP": {"issuer": "XRP Ledger", "aliases": ["Ripple", "Рипл", "MOEXXRP"], "query": '"XRP" OR Ripple'},
+    "TRX": {"issuer": "TRON", "aliases": ["Трон", "TRON network", "MOEXTRX"], "query": '"TRON" OR TRX'},
+    "BNB": {"issuer": "BNB Chain", "aliases": ["Binance Coin", "Бинанс коин", "MOEXBNB"], "query": '"BNB" OR "BNB Chain"'},
+}
+_CRYPTO_TERMS = '("hard fork" OR upgrade OR halving OR outage OR delisting OR "network halt" OR burn)'
+
+
 def infer_instrument_type(name: str) -> str:
     lower = name.lower()
     if "депозитарные расписки" in lower:
@@ -84,8 +97,19 @@ def sync_from_md(path: str | Path) -> dict:
         code = item["code"]
         asset = existing.get(code)
         if asset is None:
-            db.upsert_asset(code, item["name"], infer_instrument_type(item["name"]))
+            itype = "CRYPTO" if code in CRYPTO_PROFILES else infer_instrument_type(item["name"])
+            db.upsert_asset(code, item["name"], itype)
             report["assets_added"].append(code)
+        if code in CRYPTO_PROFILES:
+            prof = CRYPTO_PROFILES[code]
+            fresh = db.get_asset(code) or {}
+            if not fresh.get("issuer_name"):
+                db.set_asset_field(code, "issuer_name", prof["issuer"])
+            if not fresh.get("underlying_ticker"):
+                db.set_asset_field(code, "underlying_ticker", code)
+            for alias in [prof["issuer"], *prof["aliases"]]:
+                if db.add_alias(code, alias):
+                    report["aliases_added"].append(f"{code}:{alias}")
         # Точные идентификаторы: заполняем только пустые, ничего не перезаписываем.
         current_isin = (asset or {}).get("isin")
         if item["isin"] and not current_isin:
@@ -147,6 +171,8 @@ def _news_query(asset: dict) -> str:
     from urllib.parse import quote_plus
     name = re.sub(r"\s*\([^)]*\)\s*$", "", asset["name"]).strip()
     name = re.sub(r"^(Американские депозитарные расписки на акции|Акции)\s+", "", name, flags=re.I)
+    if asset.get("instrument_type") == "CRYPTO" and asset["code"] in CRYPTO_PROFILES:
+        return quote_plus(f"{CRYPTO_PROFILES[asset['code']]['query']} {_CRYPTO_TERMS}")
     if asset.get("instrument_type") == "ASSET":
         # «LBMA precious metal prices (…)» слишком длинно — берём до запятой/скобки
         short = re.split(r"[,(]", name)[0].strip()

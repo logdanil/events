@@ -11,7 +11,7 @@ MD = ROOT / "underlyings_sources.md"
 def test_parse_real_file():
     assets = assets_sync.parse_underlyings_md(MD)
     codes = [a["code"] for a in assets]
-    assert len(assets) == 50
+    assert len(assets) == 56  # 50 + 6 криптоиндексов МосБиржи
     assert "SPYF" in codes and "IBIT" in codes and "TSM" in codes and "BR, BRM" in codes
     spyf = next(a for a in assets if a["code"] == "SPYF")
     assert spyf["isin"] == "US78462F1030"
@@ -93,3 +93,48 @@ def test_per_company_sec_feed_sets_cik_from_url():
     pubs = rss_monitor.parse_feed(feed, source)
     assert pubs[0]["sec_cik"] == "1046179"
     assert pubs[0]["form_type"] == "6-K"
+
+
+def test_crypto_assets_sync_profile(tmp_db, tmp_path):
+    md = tmp_path / "u.md"
+    md.write_text("## BTC\n- **Базовый актив:** Индекс МосБиржи Биткоина (MOEXBTC)\n"
+                  "- **Биржа первичного листинга:** MOEX\n- **Источники мониторинга:**\n"
+                  "  - https://bitcoincore.org/en/rss.xml\n", encoding="utf-8")
+    report = assets_sync.sync_from_md(md)
+    assert report["assets_added"] == ["BTC"]
+    a = db.get_asset("BTC")
+    assert a["instrument_type"] == "CRYPTO"
+    assert a["issuer_name"] == "Bitcoin" and a["underlying_ticker"] == "BTC"
+    assert "Биткоин" in a["aliases"] and "MOEXBTC" in a["aliases"]
+    assert "hard+fork" in assets_sync._news_query(a) and "Bitcoin" in assets_sync._news_query(a)
+    assert assets_sync.sync_from_md(md)["aliases_added"] == [], "повторная синхронизация идемпотентна"
+
+
+def test_crypto_matching_and_keywords(tmp_db):
+    from app import matcher
+    db.upsert_asset("BTC", "Индекс МосБиржи Биткоина (MOEXBTC)", "CRYPTO", aliases=["Биткоин"])
+    db.set_asset_field("BTC", "issuer_name", "Bitcoin")
+    db.set_asset_field("BTC", "underlying_ticker", "BTC")
+    db.upsert_asset("SOL", "Индекс МосБиржи Соланы (MOEXSOL)", "CRYPTO", aliases=["Solana"])
+    db.set_asset_field("SOL", "underlying_ticker", "SOL")
+    profiles = matcher.build_profiles(db.list_assets(enabled_only=True))
+    pub = {"title": "Bitcoin hard fork scheduled: node operators must upgrade before activation", "text": ""}
+    assert matcher.has_corporate_keywords(pub)
+    res = matcher.match_publication(pub, profiles)
+    assert res and res[0].asset_code == "BTC" and res[0].confidence == "high"
+    # «sol» без крипто-контекста — не Solana; с контекстом — да.
+    assert matcher.match_assets({"title": "Costa del Sol tourism outage report", "text": ""}, profiles) == []
+    assert matcher.match_assets({"title": "SOL network outage: Solana validators restart the chain", "text": ""},
+                                profiles) == ["SOL"]
+
+
+def test_json_announcements_parser():
+    from app import html_monitor
+    src = {"id": 7, "name": "binance.com", "type": "IR", "subscribers": ["BTC"],
+           "url": "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1"}
+    payload = ('{"data":{"catalogs":[{"articles":[{"id":1,"code":"abc123",'
+               '"title":"Binance Will Delist TRX Trading Pairs on 2026-09-01","releaseDate":1756000000000}]}]}}')
+    pubs = html_monitor.parse_links(payload, src)
+    assert len(pubs) == 1
+    assert pubs[0]["url"] == "https://www.binance.com/en/support/announcement/abc123"
+    assert pubs[0]["published_dt"].year == 2025 and pubs[0]["subscribers"] == ["BTC"]

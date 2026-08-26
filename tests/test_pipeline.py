@@ -215,3 +215,14 @@ def test_regulatory_filings_bypass_keyword_filter(tmp_db):
     kept = matcher.filter_publications([pub], profiles, lookback_days=3, stats=stats)
     assert len(kept) == 1 and kept[0]["asset_codes"] == ["ALIBABA"], \
         "филинг о делистинге не должен отсекаться keyword-фильтром"
+
+
+def test_parsers_detect_format_by_content():
+    """RSS под HTML-адресом и HTML под RSS-адресом — оба разбираются правильно."""
+    from app import html_monitor
+    src = {"id": 1, "name": "x", "type": "IR", "url": "https://x.com/news.aspx", "subscribers": []}
+    assert len(html_monitor.parse_links(SAMPLE_RSS, src)) == 2
+    html = "<html><body>" + "".join(
+        f'<a href="/p/{i}">Announcement number {i} about network upgrade schedule</a>' for i in range(3)) + "</body></html>"
+    src_rss = {**src, "url": "https://x.com/blog/rss.xml"}
+    assert len(rss_monitor.parse_feed(html, src_rss)) == 3

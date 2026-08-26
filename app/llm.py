@@ -26,7 +26,8 @@ EVENT_TYPES = [
     "symbol_change", "isin_change", "etf_liquidation", "methodology_change",
     "index_rebalance", "contract_specification_change", "bankruptcy",
     "tender_offer", "rights_issue", "share_issuance", "capital_return",
-    "listing", "conversion", "name_change", "other",
+    "listing", "conversion", "name_change",
+    "network_upgrade", "network_outage", "halving", "token_burn", "other",
 ]
 
 # Цены USD за 1M токенов (input, output). Обновляются здесь при смене тарифов.
@@ -62,6 +63,10 @@ is_event=true ТОЛЬКО для первичного сообщения о с�
 (официальное объявление, уведомление биржи/регулятора, новость о факте). Планы, ожидания,
 «приближается к…», «может…» из аналитических статей без официального объявления — is_event=false.
 
+Криптоактивы (индексы МосБиржи на BTC/ETH/SOL/XRP/TRX/BNB): событие — хардфорк/обновление протокола
+с датой активации (network_upgrade), остановка или перезапуск сети (network_outage), халвинг (halving),
+делистинг монеты с крупной биржи (delisting), сжигание токенов (token_burn), изменение методики индекса.
+Динамика цены, листинг новых торговых пар, партнёрства, маркетинговые акции бирж — НЕ событие.
 is_event=false обязательно, если:
 - публикация НЕ о самом активе из поля "asset" (не о его эмитенте, фонде или контракте) —
   событие у другой компании не относится к этому активу, даже если оно значимое;

@@ -37,6 +37,12 @@ def _entry_published(entry) -> tuple[str | None, datetime | None]:
 def parse_feed(content: bytes | str, source: dict) -> list[dict]:
     """Разбирает содержимое фида в публикации (синхронно, вызывается в thread)."""
     feed = feedparser.parse(content)
+    if not feed.entries and isinstance(content, (bytes, str)):
+        # HTML под RSS-адресом (bnbchain.org/blog/rss.xml) — отдаём HTML-парсеру.
+        text = content.decode("utf-8", "replace") if isinstance(content, bytes) else content
+        if "<html" in text[:400].lower():
+            from app.html_monitor import parse_links
+            return parse_links(text, source)
     publications = []
     for entry in feed.entries[:MAX_ENTRIES_PER_FEED]:
         url = entry.get("link") or ""

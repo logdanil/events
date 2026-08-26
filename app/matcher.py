@@ -38,17 +38,23 @@ CORPORATE_KEYWORDS = [
     "capital return", "capital distribution", "distribution", "consolidation", "share issuance",
     "дроблени", "делистинг", "слияни", "поглощен", "банкрот", "выкуп",
     "приостановка торгов", "спецификаци", "дивиденд",
+    # криптоактивы: события сети и биржевые действия с монетой
+    "hard fork", "hardfork", "halving", "network upgrade", "protocol upgrade", "mainnet",
+    "airdrop", "token burn", "outage", "network halt", "chain halt", "restart", "delist",
+    "хардфорк", "халвинг", "остановка сети", "обновление сети", "апгрейд",
 ]
 
 # Контекст, легализующий короткий/неоднозначный тикер (SPY, EM, GOLD, DAX…).
 TICKER_CONTEXT_WORDS = {"etf", "fund", "trust", "shares", "ticker", "symbol", "nyse",
-                        "nasdaq", "etn", "adr", "dividend", "distribution", "listing", "index"}
+                        "nasdaq", "etn", "adr", "dividend", "distribution", "listing", "index",
+                        "crypto", "cryptocurrency", "blockchain", "token", "coin", "network",
+                        "mainnet", "protocol", "exchange", "binance", "coinbase", "kraken"}
 
 # Похоже на биржевой тикер: цифры/точка внутри ("0700.hk", "2330.tw", "2800 hk").
 _TICKERISH_RE = re.compile(r"^[a-z0-9][a-z0-9. \-]{1,11}$")
 
 # Заведомо неоднозначные тикеры: без контекста не сопоставляются вовсе.
-AMBIGUOUS_TICKERS = {"spy", "em", "br", "ng", "plt", "pld", "gold", "silv", "dax",
+AMBIGUOUS_TICKERS = {"spy", "em", "br", "ng", "plt", "pld", "gold", "silv", "dax", "sol",
                      "sugr", "ttf", "china", "india", "brazil", "cocoa", "coffee", "orange"}
 
 # Общие слова провайдеров/юр. форм: сами по себе дают не более WEIGHT_PROVIDER.

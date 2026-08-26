@@ -19,8 +19,53 @@ MAX_LINKS_PER_PAGE = 30
 MIN_TITLE_LEN = 25
 
 
+def parse_json_articles(text: str, source: dict) -> list[dict]:
+    """JSON-API объявлений (Binance CMS и подобные): рекурсивно собирает объекты
+    с полем title; ссылка — url/link, либо код анонса Binance, либо страница источника."""
+    import json
+    from datetime import datetime, timezone
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    found: list[dict] = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            title = node.get("title")
+            if isinstance(title, str) and len(title.strip()) >= MIN_TITLE_LEN:
+                url = node.get("url") or node.get("link")
+                if not url and node.get("code") and "binance.com" in source["url"]:
+                    url = f"https://www.binance.com/en/support/announcement/{node['code']}"
+                if not url:
+                    url = f"{source['url']}#{node.get('id') or node.get('code') or len(found)}"
+                published_dt = None
+                stamp = node.get("releaseDate") or node.get("publishDate") or node.get("createTime")
+                if isinstance(stamp, (int, float)) and stamp > 1e9:
+                    published_dt = datetime.fromtimestamp(stamp / (1000 if stamp > 1e11 else 1), tz=timezone.utc)
+                found.append({"url": url, "title": " ".join(title.split()), "text": str(node.get("body") or node.get("summary") or "")[:1200],
+                              "published_at": published_dt.isoformat() if published_dt else None,
+                              "published_dt": published_dt, "source": source["name"],
+                              "source_id": source["id"], "source_type": source["type"],
+                              "subscribers": source.get("subscribers", [])})
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+    walk(data)
+    return found[:MAX_LINKS_PER_PAGE]
+
+
 def parse_links(html: str, source: dict) -> list[dict]:
     """Извлекает содержательные ссылки со страницы (синхронно, вызывается в thread)."""
+    head = html.lstrip()[:400].lower()
+    if head[:1] in "{[":
+        return parse_json_articles(html, source)
+    if "<rss" in head or "<feed" in head or "<rdf:rdf" in head:
+        # RSS/Atom под HTML-адресом (например, moex.com/export/news.aspx) — отдаём фид-парсеру.
+        from app.rss_monitor import parse_feed
+        return parse_feed(html, source)
     soup = BeautifulSoup(html, "html.parser")
     publications = []
     seen = set()

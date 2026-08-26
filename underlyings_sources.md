@@ -359,3 +359,115 @@
 - **Биржа первичного листинга:** ICE Futures US
 - **Источники мониторинга:**
   - https://www.ice.com/products/30
+
+<!-- Фьючерсы на индексы МосБиржи иностранных цифровых валют (криптомонеты). -->
+
+## BTC
+- **Базовый актив:** Индекс МосБиржи Биткоина (MOEXBTC)
+- **Биржа первичного листинга:** MOEX
+- **Источники мониторинга:**
+  - https://bitcoincore.org/en/rss.xml
+  - https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20
+  - https://blog.kraken.com/feed
+  - https://www.coinbase.com/blog
+  - https://status.coinbase.com/history.rss
+  - https://announcements.bybit.com/en/
+  - https://www.okx.com/help/category/announcements
+  - https://blog.bitfinex.com/feed/
+  - https://www.gemini.com/blog
+  - https://www.coindesk.com/arc/outboundfeeds/rss/
+  - https://cointelegraph.com/rss
+  - https://www.moex.com/ru/derivatives/
+  - https://www.moex.com/export/news.aspx?cat=101
+
+## ETH
+- **Базовый актив:** Индекс МосБиржи Эфира (MOEXETH)
+- **Биржа первичного листинга:** MOEX
+- **Источники мониторинга:**
+  - https://blog.ethereum.org/feed.xml
+  - https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20
+  - https://blog.kraken.com/feed
+  - https://www.coinbase.com/blog
+  - https://status.coinbase.com/history.rss
+  - https://announcements.bybit.com/en/
+  - https://www.okx.com/help/category/announcements
+  - https://blog.bitfinex.com/feed/
+  - https://www.gemini.com/blog
+  - https://www.coindesk.com/arc/outboundfeeds/rss/
+  - https://cointelegraph.com/rss
+  - https://www.moex.com/ru/derivatives/
+  - https://www.moex.com/export/news.aspx?cat=101
+
+## SOL
+- **Базовый актив:** Индекс МосБиржи Соланы (MOEXSOL)
+- **Биржа первичного листинга:** MOEX
+- **Источники мониторинга:**
+  - https://status.solana.com/history.rss
+  - https://solana.com/news
+  - https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20
+  - https://blog.kraken.com/feed
+  - https://www.coinbase.com/blog
+  - https://status.coinbase.com/history.rss
+  - https://announcements.bybit.com/en/
+  - https://www.okx.com/help/category/announcements
+  - https://blog.bitfinex.com/feed/
+  - https://www.gemini.com/blog
+  - https://www.coindesk.com/arc/outboundfeeds/rss/
+  - https://cointelegraph.com/rss
+  - https://www.moex.com/ru/derivatives/
+  - https://www.moex.com/export/news.aspx?cat=101
+
+## XRP
+- **Базовый актив:** Индекс МосБиржи Рипла (MOEXXRP)
+- **Биржа первичного листинга:** MOEX
+- **Источники мониторинга:**
+  - https://xrpl.org/blog/
+  - https://ripple.com/insights/
+  - https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20
+  - https://blog.kraken.com/feed
+  - https://www.coinbase.com/blog
+  - https://status.coinbase.com/history.rss
+  - https://announcements.bybit.com/en/
+  - https://www.okx.com/help/category/announcements
+  - https://blog.bitfinex.com/feed/
+  - https://www.gemini.com/blog
+  - https://www.coindesk.com/arc/outboundfeeds/rss/
+  - https://cointelegraph.com/rss
+  - https://www.moex.com/ru/derivatives/
+  - https://www.moex.com/export/news.aspx?cat=101
+
+## TRX
+- **Базовый актив:** Индекс МосБиржи Трона (MOEXTRX)
+- **Биржа первичного листинга:** MOEX
+- **Источники мониторинга:**
+  - https://trondao.org/news/
+  - https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20
+  - https://blog.kraken.com/feed
+  - https://www.coinbase.com/blog
+  - https://status.coinbase.com/history.rss
+  - https://announcements.bybit.com/en/
+  - https://www.okx.com/help/category/announcements
+  - https://blog.bitfinex.com/feed/
+  - https://www.gemini.com/blog
+  - https://www.coindesk.com/arc/outboundfeeds/rss/
+  - https://cointelegraph.com/rss
+  - https://www.moex.com/ru/derivatives/
+  - https://www.moex.com/export/news.aspx?cat=101
+
+## BNB
+- **Базовый актив:** Индекс МосБиржи Бинанс коина (MOEXBNB)
+- **Биржа первичного листинга:** MOEX
+- **Источники мониторинга:**
+  - https://www.bnbchain.org/en/blog
+  - https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20
+  - https://blog.kraken.com/feed
+  - https://www.coinbase.com/blog
+  - https://status.coinbase.com/history.rss
+  - https://announcements.bybit.com/en/
+  - https://www.okx.com/help/category/announcements
+  - https://blog.bitfinex.com/feed/
+  - https://www.gemini.com/blog
+  - https://www.coindesk.com/arc/outboundfeeds/rss/
+  - https://cointelegraph.com/rss
+  - https://www.moex.com/ru/derivatives/
+  - https://www.moex.com/export/news.aspx?cat=101
