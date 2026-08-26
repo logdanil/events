@@ -164,3 +164,13 @@ def test_url_fix_with_open_incident_same_transaction(tmp_db, monkeypatch):
     messages = health.rehabilitate_sources()
     assert messages, "реабилитация должна применяться при открытом инциденте"
     assert all(i["key"] != f"source:{broken['id']}" for i in health.open_incidents())
+
+
+def test_replacement_sources_added_once(tmp_db, monkeypatch):
+    db.upsert_asset("HYNIX", "Акции SK Hynix", "SHARE")
+    monkeypatch.setattr(health, "REPLACEMENT_SOURCES", {"HYNIX": ["https://news.example.com/en/"],
+                                                        "ABSENT": ["https://x.example.com/"]})
+    messages = health.rehabilitate_sources()
+    assert messages == ["HYNIX: подключён рабочий первоисточник https://news.example.com/en/"]
+    assert health.rehabilitate_sources() == []
+    assert any(s["url"] == "https://news.example.com/en/" for s in db.list_source_defs())

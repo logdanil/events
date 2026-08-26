@@ -148,6 +148,14 @@ URL_FIXES = {
 }
 
 
+# Живые страницы первоисточников взамен исчезнувших (404): подключаются при старте.
+REPLACEMENT_SOURCES = {
+    "HYNIX": ["https://news.skhynix.com/en/", "https://www.skhynix.com/ir/UI-FR-IR12_T1/"],
+    "SAUDI": ["https://www.ishares.com/us/products/271540/ishares-msci-saudi-arabia-capped-etf"],
+    "NIKK": ["https://www.blackrock.com/jp/individual-en/en/products/251897/ishares-core-nikkei-225-etf"],
+}
+
+
 def rehabilitate_sources() -> list[str]:
     """Возвращает в работу источники, отключённые старым авто-приглушением по 403
     (обход через TLS-отпечатки теперь открывает большинство из них), и чинит URL
@@ -187,6 +195,16 @@ def rehabilitate_sources() -> list[str]:
             conn.execute("UPDATE health_incidents SET resolved_at=? WHERE component='source' "
                          "AND key=? AND resolved_at IS NULL", (_now(), f"source:{old_row[0]}"))
             messages.append(f"сломанный URL заменён на рабочий: {new}")
+    # Замены исчезнувших страниц — отдельными соединениями уже после транзакции выше.
+    for code, urls in REPLACEMENT_SOURCES.items():
+        with db.connect() as conn:
+            if not conn.execute("SELECT 1 FROM assets WHERE code=?", (code,)).fetchone():
+                continue
+            missing = [u for u in urls if not conn.execute(
+                "SELECT 1 FROM source_defs WHERE url=?", (u,)).fetchone()]
+        for url in missing:
+            db.add_source(code, url)
+            messages.append(f"{code}: подключён рабочий первоисточник {url}")
     return messages
 
 
