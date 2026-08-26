@@ -73,6 +73,17 @@ NEGATIVE_PENALTY = 0.30
 
 HIGH, MEDIUM, LOW = 0.80, 0.60, 0.40
 
+# Фонды/индексы: их «свои» страницы (биржа, сайт фонда) перечисляют новости компаний
+# из состава индекса. Такой публикации без слов о самом фонде фонд не получает.
+FUND_TYPES = {"ETF", "INDEX", "FUND"}
+FUND_CONTEXT_WORDS = {"fund", "etf", "trust", "unit", "units", "unitholder", "unitholders",
+                      "shareholders of the fund", "nav", "index", "rebalance", "rebalancing",
+                      "constituent", "distribution", "creation", "redemption", "фонд", "паи", "индекс"}
+# Признаки, означающие, что актив назван в тексте сам (а не выведен из источника).
+NAMED_SIGNALS = {"exact_isin", "exact_cusip", "exact_cik", "exact_lei", "exact_full_name",
+                 "exact_normalized_name", "exact_issuer_name", "long_alias", "ticker_with_context",
+                 "manual_rule", "sec_cik_exact", "sec_filer_exact_name"}
+
 _WORD_RE = re.compile(r"\w+", re.UNICODE)
 
 
@@ -331,6 +342,12 @@ def match_one(pub: dict, profile: AssetProfile) -> MatchResult:
         matched_by.append(f"fuzzy_{fuzzy_score:.0f}")
 
     score = max(signals) if signals else 0.0
+    if owned and not signals and profile.instrument_type in FUND_TYPES \
+            and not any(_phrase_in(w, text) for w in FUND_CONTEXT_WORDS):
+        # Страница фонда/биржи, но в тексте ни слова о фонде — это новость
+        # о компании из состава индекса, владение не засчитываем.
+        owned = False
+        rejected_terms.append("source_owned:constituent_news")
     if owned and (signals or has_corporate_keywords(pub)):
         score += W_OWNED_BONUS
         matched_by.append("source_owned_by_asset")
@@ -356,9 +373,20 @@ def match_one(pub: dict, profile: AssetProfile) -> MatchResult:
 
 
 def match_publication(pub: dict, profiles: list[AssetProfile]) -> list[MatchResult]:
-    """Все ненулевые совпадения, отсортированные по score."""
+    """Все ненулевые совпадения, отсортированные по score.
+
+    Взаимоисключение: если публикация по имени принадлежит компании (акция/ADR),
+    фонды и индексы, не названные в тексте сами, её не получают — новость об Alibaba
+    не относится к Tracker Fund, даже если пришла со страницы биржи."""
+    types = {p.code: p.instrument_type for p in profiles}
     results = [match_one(pub, p) for p in profiles]
     results = [r for r in results if r.score > 0]
+    company_named = any(types.get(r.asset_code) not in FUND_TYPES
+                        and set(r.matched_by) & NAMED_SIGNALS for r in results)
+    if company_named:
+        results = [r for r in results
+                   if types.get(r.asset_code) not in FUND_TYPES
+                   or set(r.matched_by) & NAMED_SIGNALS]
     results.sort(key=lambda r: r.score, reverse=True)
     return results
 

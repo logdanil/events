@@ -149,6 +149,17 @@ def split_sources(sources: list[dict]) -> tuple[list[dict], list[dict]]:
     return rss, html
 
 
+def _target_asset(c: dict, candidates: list[str]) -> str | None:
+    """Актив, о котором публикация: код от модели, если он среди кандидатов;
+    единственный кандидат — если модель код не вернула."""
+    code = str(c.get("asset_code") or "").strip().upper()
+    if code and code in candidates:
+        return code
+    if len(candidates) == 1 and not code:
+        return candidates[0]
+    return None
+
+
 def _stale_reason(c: dict) -> str:
     """Устаревшая публикация: дата публикации (или дата события в прошлом) старше STALE_DAYS."""
     from datetime import date
@@ -253,14 +264,18 @@ class Monitor:
                 if c.get("is_event") and stats:
                     stats.llm_events += 1
                 accepted, reason = classification_ok(c, min_confidence, allow_rumors)
+                target = _target_asset(c, pub["asset_codes"])
+                if accepted and not target:
+                    accepted, reason = False, "модель не отнесла публикацию ни к одному кандидату"
                 if accepted:
                     llm_result, status = c.get("event_type", "event"), "event_created"
-                    for code in pub["asset_codes"]:
-                        events.append(_normalize_event(code, {
-                            **c,
-                            "title": pub["title"],
-                            "sources": [{"name": pub.get("source"), "url": pub["url"]}],
-                        }))
+                    # Одна публикация — одно событие, только для актива, о котором она.
+                    # Копирование на всех кандидатов давало «присосавшиеся» события.
+                    events.append(_normalize_event(target, {
+                        **c,
+                        "title": pub["title"],
+                        "sources": [{"name": pub.get("source"), "url": pub["url"]}],
+                    }))
                 else:
                     llm_result, status = f"rejected:{reason[:80]}", "rejected"
                     if c.get("is_event") and stats:

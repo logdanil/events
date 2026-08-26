@@ -262,9 +262,13 @@ def test_search_results_do_not_get_ownership(tmp_db):
            "source_type": "SEARCH", "source": "Tavily", "subscribers": ["SPYF"]}
     assert matcher.match_assets(pub, profiles) == [], \
         "поисковый результат без упоминания актива не должен сопоставляться"
-    # А персональная IR-страница (не SEARCH) владение сохраняет.
+    # Персональная страница фонда, но новость о посторонней компании без единого
+    # слова о фонде — это новость о составе индекса, фонд её не получает.
     pub_ir = {**pub, "source_type": "IR", "source_id": 5}
-    assert matcher.match_assets(pub_ir, profiles) == ["SPYF"]
+    assert matcher.match_assets(pub_ir, profiles) == []
+    # А уведомление самого фонда на его странице — владение сохраняет.
+    pub_fund = {**pub_ir, "title": "Notice to unitholders: the Trust announces distribution and unit split"}
+    assert matcher.match_assets(pub_fund, profiles) == ["SPYF"]
     # Tavily-результат, реально упоминающий актив, матчится по тексту.
     pub_real = {"title": "SPDR S&P 500 ETF Trust announces stock split", "text": "",
                 "source_type": "SEARCH", "subscribers": ["SPYF"]}
@@ -319,3 +323,52 @@ def test_news_aggregator_feed_gives_no_ownership(tmp_db):
            "source_type": "NEWS", "source": "Google News", "source_id": 77, "subscribers": ["NASD"]}
     codes = matcher.match_assets(pub, profiles)
     assert codes == ["HYNIX"], f"ожидали HYNIX по тексту, получили {codes}"
+
+
+def test_constituent_news_belongs_to_company_not_fund(tmp_db):
+    """Эмиссия Alibaba со страницы биржи, на которую подписан Tracker Fund,
+    — событие ALIBABA, а не HANG (регресс события #15)."""
+    db.upsert_asset("HANG", "Tracker Fund of Hong Kong", "ETF", aliases=["Tracker Fund"])
+    db.upsert_asset("ALIBABA", "Alibaba Group Holding Ltd – ADR (BABA)", "ADR", aliases=["Alibaba"])
+    profiles = matcher.build_profiles(db.list_assets(enabled_only=True))
+    pub = {"title": "Alibaba Group Holding raises US$10.2 billion in share issuance for AI",
+           "text": "", "source_type": "EXCHANGE", "source": "HKEX", "source_id": 9,
+           "subscribers": ["HANG"]}
+    results = matcher.match_publication(pub, profiles)
+    assert [r.asset_code for r in results] == ["ALIBABA"]
+
+
+def test_company_news_does_not_leak_to_index_fund(tmp_db):
+    """Новость о Novartis не относится к DAX, даже если слово DAX встречается рядом."""
+    db.upsert_asset("DAX", "iShares Core DAX UCITS ETF", "ETF", aliases=["DAX"])
+    db.upsert_asset("NOVARTIS", "Novartis AG", "ADR", aliases=["Novartis", "NVS"])
+    profiles = matcher.build_profiles(db.list_assets(enabled_only=True))
+    pub = {"title": "Novartis shares rise on dual listing plan; DAX index flat",
+           "text": "", "source_type": "NEWS", "source": "Google News", "subscribers": ["DAX"]}
+    assert [r.asset_code for r in matcher.match_publication(pub, profiles)] == ["NOVARTIS"]
+
+
+class TargetProvider(LLMProvider):
+    name, model = "fake", "fake-1"
+
+    async def classify_batch(self, items):
+        from datetime import date
+        return ([{"index": it["index"], "asset_code": "ALIBABA", "about_asset": True,
+                  "is_event": True, "event_type": "share_issuance", "severity": "high",
+                  "confidence": 0.9, "status": "confirmed", "publication_date": date.today().isoformat(),
+                  "summary": "Эмиссия."} for it in items],
+                LLMUsage(calls=1, input_tokens=50, output_tokens=5, cost_usd=0.001))
+
+
+@pytest.mark.asyncio
+async def test_one_publication_one_event_for_named_asset(tmp_db):
+    """Публикация с несколькими кандидатами → событие только у актива, названного моделью."""
+    _seed_assets()
+    db.upsert_asset("HANG", "Tracker Fund of Hong Kong", "ETF")
+    m = Monitor.__new__(Monitor)
+    m.llm = TargetProvider()
+    pub = {"url": "https://x.com/1", "url_hash": matcher.url_hash("https://x.com/1"),
+           "title_hash": None, "title": "Alibaba raises US$10.2bn", "text": "",
+           "published_at": None, "source": "HKEX", "asset_codes": ["HANG", "ALIBABA"]}
+    events = await m.classify([pub], ScanStats())
+    assert [e["asset_code"] for e in events] == ["ALIBABA"]
