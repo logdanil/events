@@ -183,7 +183,9 @@ def rehabilitate_sources() -> list[str]:
             else:
                 conn.execute("UPDATE source_defs SET url=?, enabled=1, fail_streak=0 WHERE id=?",
                              (new, old_row[0]))
-            resolve("source", f"source:{old_row[0]}")
+            # В той же транзакции: отдельное соединение (resolve) упёрлось бы в блокировку.
+            conn.execute("UPDATE health_incidents SET resolved_at=? WHERE component='source' "
+                         "AND key=? AND resolved_at IS NULL", (_now(), f"source:{old_row[0]}"))
             messages.append(f"сломанный URL заменён на рабочий: {new}")
     return messages
 

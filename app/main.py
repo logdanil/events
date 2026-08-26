@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import logging
 from datetime import datetime, time as dt_time
@@ -436,9 +437,12 @@ async def startup_selfcheck(app: Application) -> None:
         restored = health.rehabilitate_sources()
         for msg in restored:
             log.info("Реабилитация: %s", msg)
-    except Exception:
+    except Exception as exc:
         log.exception("Реабилитация источников не удалась — продолжаем запуск")
         restored = []
+        rehab_error = str(exc)[:200]
+    else:
+        rehab_error = ""
     stats = db.db_stats()
     subs = len(db.list_subscribers())
     mails = len(db.list_email_recipients())
@@ -448,6 +452,8 @@ async def startup_selfcheck(app: Application) -> None:
              f"Подписчиков TG: {subs} · email-адресов: {mails}"]
     if restored:
         lines.append("♻️ Возвращены в мониторинг: " + str(len(restored)) + " источников (обход антибот-защиты)")
+    if rehab_error:
+        lines.append(f"⚠️ Реабилитация источников не удалась: <code>{html.escape(rehab_error)}</code> — повторите /rehab")
     on_volume = _P(settings.db_path).is_absolute() and str(settings.db_path).startswith("/data")
     if not on_volume:
         lines.append("⚠️ DB_PATH не указывает на /data — на Railway база НЕ переживёт деплой. "
@@ -473,6 +479,24 @@ async def watchdog(context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     a = health.check_scheduler(interval)
     await notify_health(context.application.bot, [a] if a else None)
+
+
+async def rehab_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Реабилитация источников по требованию: вернуть отключённые, починить URL."""
+    from app.bot import guard
+    if not await guard(update):
+        return
+    msg = update.effective_message
+    try:
+        messages = health.rehabilitate_sources()
+    except Exception as exc:
+        await reply_html(msg, f"❌ Реабилитация не удалась: <code>{html.escape(str(exc)[:300])}</code>")
+        return
+    if not messages:
+        await reply_html(msg, "♻️ Реабилитация: всё уже в порядке, менять нечего.")
+        return
+    await reply_html(msg, "♻️ <b>Реабилитация источников</b>\n" +
+                     "\n".join(f"• {html.escape(m)}" for m in messages))
 
 
 async def health_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -820,6 +844,7 @@ def main() -> None:
     app.add_handler(CommandHandler("testbroadcast", test_broadcast))
     app.add_handler(CommandHandler("summary", summary_cmd))
     app.add_handler(CommandHandler("health", health_cmd))
+    app.add_handler(CommandHandler("rehab", rehab_cmd))
     app.add_handler(CommandHandler("exportusers", export_recipients))
     app.add_handler(CommandHandler("importusers", import_users))
     app.add_handler(CommandHandler("addemail", add_email))

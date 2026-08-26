@@ -149,3 +149,18 @@ def test_url_fix_with_existing_duplicate(tmp_db, monkeypatch):
     assert rows["https://broken.example.com/page"]["enabled"] == 0
     assert rows["https://working.example.com/page"]["enabled"] == 1
     assert health.rehabilitate_sources() == []
+
+
+def test_url_fix_with_open_incident_same_transaction(tmp_db, monkeypatch):
+    """Регресс Railway: у сломанного источника есть открытый инцидент — реабилитация
+    не должна упираться в блокировку базы (второе соединение внутри транзакции)."""
+    db.upsert_asset("EM", "iShares MSCI Emerging Markets ETF", "ETF")
+    db.add_source("EM", "https://broken.example.com/page")
+    db.add_source("EM", "https://working.example.com/page")
+    broken = next(s for s in db.list_source_defs() if "broken" in s["url"])
+    health.report("source", f"source:{broken['id']}", "недоступен 94 проверок")
+    monkeypatch.setattr(health, "URL_FIXES",
+                        {"https://broken.example.com/page": "https://working.example.com/page"})
+    messages = health.rehabilitate_sources()
+    assert messages, "реабилитация должна применяться при открытом инциденте"
+    assert all(i["key"] != f"source:{broken['id']}" for i in health.open_incidents())
