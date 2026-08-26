@@ -768,10 +768,22 @@ async def post_init(app: Application) -> None:
     log.info("Bot initialized with %s minute interval; daily summary at 19:00 MSK", interval)
 
 
+from telegram.error import NetworkError as _TgNetworkError, RetryAfter as _TgRetryAfter, \
+    TimedOut as _TgTimedOut
+
+TRANSIENT_TELEGRAM_ERRORS = (_TgNetworkError, _TgTimedOut, _TgRetryAfter)
+
+
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Необработанное исключение в команде: логируем, отвечаем пользователю,
     администратору — health-алерт (с дедупликацией по типу ошибки)."""
     err = context.error
+    # Кратковременные сетевые сбои самого Telegram (Bad Gateway, таймауты, rate-limit):
+    # библиотека повторяет запрос сама, это не ошибка нашего кода — только лог.
+    if isinstance(err, TRANSIENT_TELEGRAM_ERRORS):
+        log.warning("Сетевой сбой Telegram (повтор автоматический): %s: %s",
+                    type(err).__name__, str(err)[:200])
+        return
     log.exception("Необработанная ошибка в обработчике", exc_info=err)
     try:
         if isinstance(update, Update) and update.effective_message:

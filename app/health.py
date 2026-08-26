@@ -205,6 +205,25 @@ def rehabilitate_sources() -> list[str]:
         for url in missing:
             db.add_source(code, url)
             messages.append(f"{code}: подключён рабочий первоисточник {url}")
+        # Замена подключена — уведомления «страница не существует» по этому активу закрываем.
+        with db.connect() as conn:
+            dead_ids = [r[0] for r in conn.execute(
+                "SELECT d.id FROM source_defs d JOIN asset_sources s ON s.source_id=d.id "
+                "WHERE s.asset_code=? AND d.enabled=0", (code,)).fetchall()]
+            for sid in dead_ids:
+                cur = conn.execute(
+                    "UPDATE health_incidents SET resolved_at=? WHERE component='source' "
+                    "AND key=? AND resolved_at IS NULL", (_now(), f"disabled:{sid}"))
+                if cur.rowcount:
+                    messages.append(f"{code}: закрыто уведомление об исчезнувшей странице (id {sid})")
+    # Сетевые сбои Telegram — временные; старые записи о них из «открытых проблем» убираем.
+    with db.connect() as conn:
+        cur = conn.execute(
+            "UPDATE health_incidents SET resolved_at=? WHERE component='bot' AND resolved_at IS NULL "
+            "AND (key LIKE 'handler:NetworkError%' OR key LIKE 'handler:TimedOut%' "
+            "OR key LIKE 'handler:RetryAfter%')", (_now(),))
+        if cur.rowcount:
+            messages.append("закрыты записи о временных сетевых сбоях Telegram")
     return messages
 
 

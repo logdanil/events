@@ -174,3 +174,30 @@ def test_replacement_sources_added_once(tmp_db, monkeypatch):
     assert messages == ["HYNIX: подключён рабочий первоисточник https://news.example.com/en/"]
     assert health.rehabilitate_sources() == []
     assert any(s["url"] == "https://news.example.com/en/" for s in db.list_source_defs())
+
+
+@pytest.mark.asyncio
+async def test_transient_telegram_errors_not_reported(tmp_db):
+    from telegram.error import NetworkError
+    from unittest.mock import MagicMock, AsyncMock
+    from app import main as app_main
+    context = MagicMock()
+    context.error = NetworkError("Bad Gateway")
+    context.application.bot = AsyncMock()
+    await app_main.on_error(None, context)
+    assert health.open_incidents() == [], "сетевой сбой Telegram — не инцидент"
+
+
+def test_rehabilitate_closes_stale_incidents(tmp_db, monkeypatch):
+    db.upsert_asset("HYNIX", "Акции SK Hynix", "SHARE")
+    db.add_source("HYNIX", "https://dead.example.com/news")
+    dead = db.list_source_defs()[0]
+    with db.connect() as conn:
+        conn.execute("UPDATE source_defs SET enabled=0 WHERE id=?", (dead["id"],))
+    health.report("source", f"disabled:{dead['id']}", "страница не существует", severity="info")
+    health.report("bot", "handler:NetworkError", "Bad Gateway")
+    monkeypatch.setattr(health, "REPLACEMENT_SOURCES", {"HYNIX": ["https://alive.example.com/en/"]})
+    messages = health.rehabilitate_sources()
+    assert any("закрыто уведомление" in m for m in messages)
+    assert any("Telegram" in m for m in messages)
+    assert health.open_incidents() == []
