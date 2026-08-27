@@ -50,6 +50,18 @@ TICKER_CONTEXT_WORDS = {"etf", "fund", "trust", "shares", "ticker", "symbol", "n
                         "crypto", "cryptocurrency", "blockchain", "token", "coin", "network",
                         "mainnet", "protocol", "exchange", "binance", "coinbase", "kraken"}
 
+# Тикеры, совпадающие с обычными словами: засчитываются только в скобках «(COIN)»,
+# после «NASDAQ:/NYSE:/ticker/symbol» либо на своей странице — общий контекст не спасает.
+STRICT_TICKERS = {"coin", "app", "dash", "lite", "hood", "uber", "cmg", "lulu", "spcx"}
+_TICKER_PREFIX_RE = r"(?:nasdaq|nyse|ticker|symbol|тикер)\s*:?\s*"
+
+# Рутинные формы SEC, которые корпоративным событием не бывают (сделки инсайдеров,
+# уведомления о продаже, отчёты фондов о позициях, планы опционов). 8-K/6-K/25/497/
+# DEF 14A/S-4/SC TO и прочие — проходят.
+ROUTINE_SEC_FORMS = {"3", "3/A", "4", "4/A", "5", "5/A", "144", "144/A", "13F-HR", "13F-HR/A",
+                     "13F-NT", "SC 13G", "SC 13G/A", "SC 13D", "SC 13D/A", "S-8", "S-8 POS",
+                     "11-K", "NPORT-P", "NPORT-EX", "N-PX", "ARS", "D", "D/A", "SD", "PX14A6G"}
+
 # Похоже на биржевой тикер: цифры/точка внутри ("0700.hk", "2330.tw", "2800 hk").
 _TICKERISH_RE = re.compile(r"^[a-z0-9][a-z0-9. \-]{1,11}$")
 
@@ -327,8 +339,13 @@ def match_one(pub: dict, profile: AssetProfile) -> MatchResult:
     for ticker in profile.tickers:
         if not _phrase_in(ticker, text):
             continue
-        parenthesized = re.search(rf"\({re.escape(ticker)}\)", text) is not None
-        context = has_context or parenthesized or owned or bool(matched_terms)
+        parenthesized = re.search(rf"\({re.escape(ticker)}\)", text) is not None \
+            or re.search(_TICKER_PREFIX_RE + re.escape(ticker) + r"(?!\w)", text) is not None
+        strict = ticker in STRICT_TICKERS
+        context = parenthesized or owned or bool(matched_terms) or (has_context and not strict)
+        if strict and not context:
+            rejected_terms.append(ticker)
+            continue
         if ticker in AMBIGUOUS_TICKERS and not context:
             rejected_terms.append(ticker)
             continue
@@ -442,6 +459,11 @@ def filter_publications(publications: list[dict], profiles: list[AssetProfile],
         # по определению: keyword-фильтр по заголовку к ним неприменим (в заголовке
         # только код формы), решение принимают сопоставление по CIK и LLM.
         is_regulatory = bool(p.get("sec_cik") or p.get("sec_filer") or p.get("form_type"))
+        if is_regulatory and str(p.get("form_type") or "").strip().upper() in ROUTINE_SEC_FORMS:
+            db.remember_article(p.get("url", ""), uh, th, p.get("published_at"),
+                                p.get("source"), "skipped:routine_sec_form",
+                                status="keyword_filtered", title=p.get("title"))
+            continue
         if not is_regulatory and not has_corporate_keywords(p):
             db.remember_article(p.get("url", ""), uh, th, p.get("published_at"),
                                 p.get("source"), "skipped:no_keywords",

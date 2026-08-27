@@ -29,7 +29,7 @@ def parse_underlyings_md(path: str | Path) -> list[dict]:
         m = _SECTION_RE.match(line)
         if m:
             current = {"code": m.group("code").strip(), "name": "", "isin": None,
-                       "exchange": None, "sources": []}
+                       "exchange": None, "sources": [], "cik": None, "issuer": None, "aliases": []}
             assets.append(current)
             continue
         if current is None:
@@ -43,6 +43,12 @@ def parse_underlyings_md(path: str | Path) -> list[dict]:
                 current["isin"] = value.strip("`").strip() or None
             elif key.startswith("биржа"):
                 current["exchange"] = value or None
+            elif key == "cik":
+                current["cik"] = value.strip("`").strip() or None
+            elif key == "эмитент":
+                current["issuer"] = value or None
+            elif key == "алиасы":
+                current["aliases"] = [a.strip() for a in value.split(",") if a.strip()]
             continue
         u = _URL_RE.match(line)
         if u and current is not None:
@@ -117,6 +123,13 @@ def sync_from_md(path: str | Path) -> dict:
             report["isin_filled"].append(code)
         if item["exchange"] and not (asset or {}).get("exchange"):
             db.set_asset_field(code, "exchange", item["exchange"])
+        if item.get("cik") and not (asset or {}).get("cik"):
+            db.set_asset_field(code, "cik", item["cik"])
+        if item.get("issuer") and not (asset or {}).get("issuer_name"):
+            db.set_asset_field(code, "issuer_name", item["issuer"])
+        for extra in item.get("aliases", []):
+            if db.add_alias(code, extra):
+                report["aliases_added"].append(f"{code}:{extra}")
         # Английское имя эмитента из русского описания — как алиас для matcher.
         alias = english_alias(item["name"])
         if alias and db.add_alias(code, alias):

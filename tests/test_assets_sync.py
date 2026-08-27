@@ -11,7 +11,7 @@ MD = ROOT / "underlyings_sources.md"
 def test_parse_real_file():
     assets = assets_sync.parse_underlyings_md(MD)
     codes = [a["code"] for a in assets]
-    assert len(assets) == 56  # 50 + 6 криптоиндексов МосБиржи
+    assert len(assets) == 77  # 50 + 6 криптоиндексов + 21 акция США
     assert "SPYF" in codes and "IBIT" in codes and "TSM" in codes and "BR, BRM" in codes
     spyf = next(a for a in assets if a["code"] == "SPYF")
     assert spyf["isin"] == "US78462F1030"
@@ -138,3 +138,34 @@ def test_json_announcements_parser():
     assert len(pubs) == 1
     assert pubs[0]["url"] == "https://www.binance.com/en/support/announcement/abc123"
     assert pubs[0]["published_dt"].year == 2025 and pubs[0]["subscribers"] == ["BTC"]
+
+
+def test_us_stock_sync_fields(tmp_db, tmp_path):
+    md = tmp_path / "u.md"
+    md.write_text("## COIN\n- **Базовый актив:** Акции Coinbase Global, Inc. (COIN)\n"
+                  "- **Эмитент:** Coinbase Global, Inc.\n- **Алиасы:** Coinbase\n- **CIK:** `1679788`\n"
+                  "- **Биржа первичного листинга:** NASDAQ\n- **Источники мониторинга:**\n"
+                  "  - https://www.nasdaq.com/market-activity/stocks/coin/press-releases\n", encoding="utf-8")
+    assets_sync.sync_from_md(md)
+    a = db.get_asset("COIN")
+    assert a["instrument_type"] == "SHARE" and a["cik"] == "1679788"
+    assert a["issuer_name"] == "Coinbase Global, Inc." and a["underlying_ticker"] == "COIN"
+    assert "Coinbase" in a["aliases"]
+    rep = assets_sync.ensure_backup_sources()
+    urls = {s["url"] for s in db.get_asset("COIN")["sources"]}
+    assert any("sec.gov" in u and "CIK=0001679788" in u for u in urls), "SEC-лента по CIK подключена"
+
+
+def test_word_tickers_need_explicit_context(tmp_db):
+    from app import matcher
+    db.upsert_asset("COIN", "Акции Coinbase Global, Inc. (COIN)", "SHARE", aliases=["Coinbase"])
+    db.set_asset_field("COIN", "issuer_name", "Coinbase Global, Inc.")
+    db.set_asset_field("COIN", "underlying_ticker", "COIN")
+    db.upsert_asset("APP", "Акции AppLovin Corporation (APP)", "SHARE", aliases=["AppLovin"])
+    db.set_asset_field("APP", "underlying_ticker", "APP")
+    profiles = matcher.build_profiles(db.list_assets(enabled_only=True))
+    # Слово «coin» в крипто-контексте — не Coinbase; «app» — не AppLovin.
+    assert matcher.match_assets({"title": "Bitcoin: the coin rallies as the crypto app market grows", "text": ""}, profiles) == []
+    # Явный биржевой контекст — засчитывается.
+    assert matcher.match_assets({"title": "Coinbase Global (NASDAQ: COIN) announces stock split", "text": ""}, profiles) == ["COIN"]
+    assert matcher.match_assets({"title": "AppLovin announces tender offer for shares", "text": ""}, profiles) == ["APP"]

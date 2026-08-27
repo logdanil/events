@@ -226,3 +226,17 @@ def test_parsers_detect_format_by_content():
         f'<a href="/p/{i}">Announcement number {i} about network upgrade schedule</a>' for i in range(3)) + "</body></html>"
     src_rss = {**src, "url": "https://x.com/blog/rss.xml"}
     assert len(rss_monitor.parse_feed(html, src_rss)) == 3
+
+
+def test_routine_sec_forms_filtered(tmp_db):
+    """Form 4 / 144 инсайдеров не идут в модель; 8-K того же эмитента — идёт."""
+    db.upsert_asset("AMD", "Акции Advanced Micro Devices, Inc. (AMD)", "SHARE")
+    db.set_asset_field("AMD", "cik", "2488")
+    profiles = matcher.build_profiles(db.list_assets(enabled_only=True))
+    base = {"text": "", "published_at": None, "published_dt": None, "source": "SEC",
+            "subscribers": ["AMD"], "sec_cik": "0000002488"}
+    pubs = [{**base, "url": "https://sec.gov/f/4", "title": "4 - Statement of changes in beneficial ownership", "form_type": "4"},
+            {**base, "url": "https://sec.gov/f/144", "title": "144 - Report of proposed sale of securities", "form_type": "144"},
+            {**base, "url": "https://sec.gov/f/8k", "title": "8-K - Current report", "form_type": "8-K"}]
+    kept = matcher.filter_publications(pubs, profiles, lookback_days=3, stats=ScanStats())
+    assert [k["url"] for k in kept] == ["https://sec.gov/f/8k"]
