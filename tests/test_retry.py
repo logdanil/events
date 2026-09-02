@@ -49,3 +49,33 @@ async def test_no_retry_on_permanent_error():
     with pytest.raises(httpx.HTTPStatusError):
         await with_retries(bad_request, what="test", base_delay=0.01)
     assert calls["n"] == 1
+
+
+@pytest.mark.asyncio
+async def test_fetch_concurrency_is_bounded():
+    """290 источников не должны исчерпывать пул соединений (регресс PoolTimeout):
+    одновременных загрузок не больше MAX_CONCURRENT_FETCHES."""
+    import asyncio
+    from app import fetcher
+    fetcher._semaphore = fetcher._sec_semaphore = None  # свежие семафоры
+    active, peak = 0, 0
+
+    class FakeResponse:
+        content = b"ok"
+        def raise_for_status(self): pass
+
+    class FakeClient:
+        async def get(self, url, **kw):
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            await asyncio.sleep(0.005)
+            active -= 1
+            return FakeResponse()
+
+    client = FakeClient()
+    sources = [{"id": i, "name": f"s{i}", "type": "IR", "url": f"https://x{i}.example.com/"}
+               for i in range(150)]
+    results = await asyncio.gather(*(fetcher.fetch(client, s) for s in sources))
+    assert all(r == b"ok" for r in results)
+    assert peak <= fetcher.MAX_CONCURRENT_FETCHES, f"пик одновременности {peak}"

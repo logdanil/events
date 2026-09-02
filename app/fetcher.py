@@ -17,6 +17,23 @@ from app.config import settings
 log = logging.getLogger(__name__)
 
 BLOCK_CODES = {403, 429, 406}
+
+# Одновременных загрузок: без лимита 290 источников исчерпывают пул соединений
+# httpx (PoolTimeout) и пул потоков curl_cffi. SEC дополнительно ограничен —
+# их правила требуют не более ~10 запросов/сек с одного клиента.
+MAX_CONCURRENT_FETCHES = 24
+MAX_CONCURRENT_SEC = 6
+_semaphore: asyncio.Semaphore | None = None
+_sec_semaphore: asyncio.Semaphore | None = None
+
+
+def _sems() -> tuple[asyncio.Semaphore, asyncio.Semaphore]:
+    # Создаются лениво, внутри работающего event loop.
+    global _semaphore, _sec_semaphore
+    if _semaphore is None:
+        _semaphore = asyncio.Semaphore(MAX_CONCURRENT_FETCHES)
+        _sec_semaphore = asyncio.Semaphore(MAX_CONCURRENT_SEC)
+    return _semaphore, _sec_semaphore
 # Разные антибот-системы режут разные браузеры: LME пропускает Safari/Firefox, но не Chrome.
 IMPERSONATE_CHAIN = ("chrome", "safari", "firefox135")
 
@@ -55,6 +72,15 @@ def _fetch_impersonated(url: str) -> bytes:
 async def fetch(client: httpx.AsyncClient, source: dict) -> bytes:
     """Содержимое страницы источника. Бросает исключение, если недоступно
     обоими способами (учёт серий сбоев остаётся на вызывающей стороне)."""
+    sem, sec_sem = _sems()
+    if "sec.gov" in source["url"]:
+        async with sec_sem:
+            return await _fetch_inner(client, source)
+    async with sem:
+        return await _fetch_inner(client, source)
+
+
+async def _fetch_inner(client: httpx.AsyncClient, source: dict) -> bytes:
     try:
         response = await client.get(source["url"], headers=request_headers(source),
                                     follow_redirects=True, timeout=25)

@@ -205,7 +205,9 @@ def classification_ok(c: dict, min_confidence: float = MIN_CONFIDENCE,
 
 class Monitor:
     def __init__(self) -> None:
-        self.http = httpx.AsyncClient(timeout=25)
+        self.http = httpx.AsyncClient(
+            timeout=httpx.Timeout(25, pool=60),
+            limits=httpx.Limits(max_connections=60, max_keepalive_connections=20))
         self.llm = get_provider()
         self.search = SearchMonitor()
 
