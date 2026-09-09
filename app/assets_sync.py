@@ -214,8 +214,9 @@ def ensure_backup_sources() -> dict:
                 report["sec_added"] += 1
         url = _GOOGLE_NEWS.format(q=_news_query(asset))
         if url not in existing:
+            # Google банит частые запросы: резервные ленты опрашиваем раз в 3-4 часа.
             db.add_source(asset["code"], url, kind="news", source_type="NEWS",
-                          refresh_interval=60)
+                          refresh_interval=180 + hash(asset["code"]) % 120)
             report["news_added"] += 1
     if report["sec_added"] or report["news_added"]:
         log.info("Резервные источники: SEC по CIK +%d, Google News +%d",

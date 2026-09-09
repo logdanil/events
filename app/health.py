@@ -105,16 +105,33 @@ def open_incidents() -> list[dict[str, Any]]:
 
 # --- Проверки конкретных этапов -----------------------------------------------
 
+# Хосты с десятками однотипных лент: сбой учитывается ОДНИМ инцидентом на хост,
+# иначе /health и рассылка тонут в 70+ одинаковых предупреждениях.
+AGGREGATED_HOSTS = ("news.google.com",)
+
+
+def _aggregated_host(url: str) -> str | None:
+    for host in AGGREGATED_HOSTS:
+        if host in url:
+            return host
+    return None
+
+
 def check_source(source: dict, error: str | None) -> dict | None:
     """Источник: оповещаем после SOURCE_FAIL_THRESHOLD подряд неудач; при первом
     успехе после серии — сообщение о восстановлении."""
     key = f"source:{source['id']}"
+    host = _aggregated_host(source["url"])
     if error is None:
         with db.connect() as conn:
             conn.execute("UPDATE source_defs SET fail_streak=0 WHERE id=?", (source["id"],))
         info = resolve("source", key)
         if info:
             pending_resolved.append(info)
+        if host:
+            info = resolve("source", f"host:{host}")
+            if info:
+                pending_resolved.append(info)
         return None
     with db.connect() as conn:
         conn.execute("UPDATE source_defs SET fail_streak=COALESCE(fail_streak,0)+1 WHERE id=?",
@@ -132,6 +149,16 @@ def check_source(source: dict, error: str | None) -> dict | None:
                       f"Активы: {', '.join(source.get('subscribers') or []) or 'глобальный'}. "
                       f"Если адрес изменился — добавьте новый через /addsource. URL: {source['url']}",
                       severity="info")
+    if host and streak >= SOURCE_FAIL_THRESHOLD:
+        with db.connect() as conn:
+            failing = conn.execute(
+                "SELECT COUNT(*) FROM source_defs WHERE url LIKE ? AND enabled=1 "
+                "AND COALESCE(fail_streak,0) >= ?",
+                (f"%{host}%", SOURCE_FAIL_THRESHOLD)).fetchone()[0]
+        return report("source", f"host:{host}",
+                      f"{host}: недоступны {failing} лент ({error[:120]}). Похоже на лимит "
+                      f"частоты запросов — бот уже снизил темп, доступ восстановится сам.",
+                      severity="warning")
     if streak >= SOURCE_FAIL_THRESHOLD:
         subscribers = ", ".join(source.get("subscribers") or []) or "глобальный"
         return report("source", key,
@@ -216,6 +243,20 @@ def rehabilitate_sources() -> list[str]:
                     "AND key=? AND resolved_at IS NULL", (_now(), f"disabled:{sid}"))
                 if cur.rowcount:
                     messages.append(f"{code}: закрыто уведомление об исчезнувшей странице (id {sid})")
+    # Интервал Google News: не чаще раза в 3 часа и вразнобой (id вносит разброс),
+    # чтобы 70+ лент не приходили к Google одновременно — он банит за это 503-ми.
+    with db.connect() as conn:
+        cur = conn.execute(
+            "UPDATE source_defs SET refresh_interval = 180 + (id * 7) % 120 "
+            "WHERE url LIKE '%news.google.com%' AND refresh_interval < 120")
+        if cur.rowcount:
+            messages.append(f"Google News: интервал опроса {cur.rowcount} лент растянут до 3-5 часов")
+        cur = conn.execute(
+            "UPDATE health_incidents SET resolved_at=? WHERE component='source' "
+            "AND resolved_at IS NULL AND key LIKE 'source:%' AND message LIKE '%news.google.com%'",
+            (_now(),))
+        if cur.rowcount:
+            messages.append(f"закрыты {cur.rowcount} отдельных уведомлений Google News (теперь одно общее)")
     # Сетевые сбои Telegram — временные; старые записи о них из «открытых проблем» убираем.
     with db.connect() as conn:
         cur = conn.execute(

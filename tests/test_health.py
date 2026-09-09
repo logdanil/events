@@ -201,3 +201,31 @@ def test_rehabilitate_closes_stale_incidents(tmp_db, monkeypatch):
     assert any("закрыто уведомление" in m for m in messages)
     assert any("Telegram" in m for m in messages)
     assert health.open_incidents() == []
+
+
+def test_google_news_incidents_aggregated(tmp_db):
+    """70 лент Google News с 503 → один инцидент на хост, не 70 (регресс спама в /health)."""
+    db.upsert_asset("A1", "Asset One", "SHARE")
+    for i in range(6):
+        db.add_source("A1", f"https://news.google.com/rss/search?q=test{i}")
+    google = [s for s in db.list_source_defs() if "news.google.com" in s["url"]]
+    for src in google:
+        for _ in range(health.SOURCE_FAIL_THRESHOLD):
+            health.check_source(src, "HTTPStatusError: Server error '503 Service Unavailable'")
+    open_now = [i for i in health.open_incidents() if i["component"] == "source"]
+    assert len(open_now) == 1 and open_now[0]["key"] == "host:news.google.com"
+    assert "недоступны 6 лент" in open_now[0]["message"]
+    # Первый же успех любой ленты закрывает общий инцидент.
+    health.check_source(google[0], None)
+    assert all(i["key"] != "host:news.google.com" for i in health.open_incidents())
+
+
+def test_rehabilitate_stretches_google_intervals(tmp_db):
+    db.upsert_asset("A1", "Asset One", "SHARE")
+    db.add_source("A1", "https://news.google.com/rss/search?q=x", refresh_interval=60)
+    health.report("source", "source:999", "news.google.com недоступен")
+    messages = health.rehabilitate_sources()
+    src = next(s for s in db.list_source_defs() if "news.google.com" in s["url"])
+    assert src["refresh_interval"] >= 180
+    assert any("интервал опроса" in m for m in messages)
+    assert all("source:999" != i["key"] for i in health.open_incidents())

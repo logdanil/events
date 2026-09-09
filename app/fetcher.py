@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 
 import httpx
 
@@ -23,17 +24,22 @@ BLOCK_CODES = {403, 429, 406}
 # их правила требуют не более ~10 запросов/сек с одного клиента.
 MAX_CONCURRENT_FETCHES = 24
 MAX_CONCURRENT_SEC = 6
+# Google News банит за частые запросы (503 на все ленты): ходим к нему по двое
+# и с паузой-разбросом, чтобы 70+ лент не били одновременно.
+MAX_CONCURRENT_GOOGLE = 2
 _semaphore: asyncio.Semaphore | None = None
 _sec_semaphore: asyncio.Semaphore | None = None
+_google_semaphore: asyncio.Semaphore | None = None
 
 
-def _sems() -> tuple[asyncio.Semaphore, asyncio.Semaphore]:
+def _sems() -> tuple[asyncio.Semaphore, asyncio.Semaphore, asyncio.Semaphore]:
     # Создаются лениво, внутри работающего event loop.
-    global _semaphore, _sec_semaphore
+    global _semaphore, _sec_semaphore, _google_semaphore
     if _semaphore is None:
         _semaphore = asyncio.Semaphore(MAX_CONCURRENT_FETCHES)
         _sec_semaphore = asyncio.Semaphore(MAX_CONCURRENT_SEC)
-    return _semaphore, _sec_semaphore
+        _google_semaphore = asyncio.Semaphore(MAX_CONCURRENT_GOOGLE)
+    return _semaphore, _sec_semaphore, _google_semaphore
 # Разные антибот-системы режут разные браузеры: LME пропускает Safari/Firefox, но не Chrome.
 IMPERSONATE_CHAIN = ("chrome", "safari", "firefox135")
 
@@ -72,9 +78,13 @@ def _fetch_impersonated(url: str) -> bytes:
 async def fetch(client: httpx.AsyncClient, source: dict) -> bytes:
     """Содержимое страницы источника. Бросает исключение, если недоступно
     обоими способами (учёт серий сбоев остаётся на вызывающей стороне)."""
-    sem, sec_sem = _sems()
+    sem, sec_sem, google_sem = _sems()
     if "sec.gov" in source["url"]:
         async with sec_sem:
+            return await _fetch_inner(client, source)
+    if "news.google.com" in source["url"]:
+        async with google_sem:
+            await asyncio.sleep(random.uniform(0.5, 2.0))
             return await _fetch_inner(client, source)
     async with sem:
         return await _fetch_inner(client, source)
@@ -87,7 +97,10 @@ async def _fetch_inner(client: httpx.AsyncClient, source: dict) -> bytes:
         response.raise_for_status()
         return response.content
     except httpx.HTTPStatusError as exc:
-        if exc.response.status_code not in BLOCK_CODES or "sec.gov" in source["url"]:
+        if exc.response.status_code not in BLOCK_CODES or "sec.gov" in source["url"] \
+                or "news.google.com" in source["url"]:
+            # Google/SEC режут по IP и частоте — имитация браузера не поможет,
+            # а лишние повторы только продлевают бан.
             raise
         log.info("Источник %s отдал %s — пробую с TLS-отпечатком браузера",
                  source["name"], exc.response.status_code)
@@ -95,7 +108,7 @@ async def _fetch_inner(client: httpx.AsyncClient, source: dict) -> bytes:
     except httpx.TimeoutException:
         # Медленные/антибот-сайты (iShares, HKEX) часто отвечают браузеру, но душат
         # обычный клиент — повторяем с браузерным TLS-отпечатком и большим таймаутом.
-        if "sec.gov" in source["url"]:
+        if "sec.gov" in source["url"] or "news.google.com" in source["url"]:
             raise
         log.info("Источник %s не ответил вовремя — пробую с TLS-отпечатком браузера",
                  source["name"])
