@@ -229,3 +229,41 @@ def test_rehabilitate_stretches_google_intervals(tmp_db):
     assert src["refresh_interval"] >= 180
     assert any("интервал опроса" in m for m in messages)
     assert all("source:999" != i["key"] for i in health.open_incidents())
+
+
+def test_resolved_info_never_crashes_alert_formatting(tmp_db):
+    """Запись «восстановлено» (без severity) не роняет форматтер тревог (регресс KeyError)."""
+    health.report("delivery", "email:daily", "не доставлено")
+    info = health.resolve("delivery", "email:daily")
+    assert info is None or "severity" not in info
+    text = health.format_alert({"component": "delivery", "message": "x", "occurrences": 2})
+    assert "delivery" in text
+
+
+def test_404_disable_needs_long_streak(tmp_db):
+    """Кратковременные 404 (сбой CDN) не отключают источник: нужен порог ×3."""
+    db.upsert_asset("LITE", "Акции Lumentum Holdings Inc. (LITE)", "SHARE")
+    db.add_source("LITE", "https://flaky.example.com/newsroom")
+    src = next(s for s in db.list_source_defs() if "flaky" in s["url"])
+    for _ in range(health.SOURCE_FAIL_THRESHOLD):
+        health.check_source(src, "HTTPStatusError: Client error '404 Not Found'")
+    fresh = next(s for s in db.list_source_defs(enabled_only=False) if s["id"] == src["id"])
+    assert fresh["enabled"] == 1, "3 сбоев мало для отключения"
+    for _ in range(health.SOURCE_FAIL_THRESHOLD * 2):
+        health.check_source(src, "HTTPStatusError: Client error '404 Not Found'")
+    fresh = next(s for s in db.list_source_defs(enabled_only=False) if s["id"] == src["id"])
+    assert fresh["enabled"] == 0, "долгая серия 404 — страница действительно исчезла"
+
+
+def test_revive_sources_reenabled(tmp_db, monkeypatch):
+    db.upsert_asset("LITE", "Акции Lumentum Holdings Inc. (LITE)", "SHARE")
+    db.add_source("LITE", "https://revive.example.com/newsroom")
+    src = next(s for s in db.list_source_defs() if "revive" in s["url"])
+    with db.connect() as conn:
+        conn.execute("UPDATE source_defs SET enabled=0, fail_streak=3 WHERE id=?", (src["id"],))
+    monkeypatch.setattr(health, "REVIVE_SOURCES", ["https://revive.example.com/newsroom"])
+    messages = health.rehabilitate_sources()
+    assert any("возвращён в мониторинг" in m for m in messages)
+    fresh = next(s for s in db.list_source_defs(enabled_only=False) if s["id"] == src["id"])
+    assert fresh["enabled"] == 1
+    assert health.rehabilitate_sources() == []

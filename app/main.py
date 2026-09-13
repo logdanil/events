@@ -102,8 +102,10 @@ async def notify_health(bot, extra_alerts: list[dict] | None = None) -> None:
         return
     for a in alerts:
         try:
-            await send_html_message(bot, settings.admin_telegram_id, health.format_alert(a),
-                                    silent=(a.get("severity") == "info"))
+            # Запись без severity — «восстановлено», случайно попавшее в очередь тревог.
+            text = health.format_alert(a) if a.get("severity") else health.format_resolved(a)
+            await send_html_message(bot, settings.admin_telegram_id, text,
+                                    silent=(a.get("severity", "info") == "info"))
         except Exception:
             log.exception("Не удалось отправить health-алерт")
     for r in resolved:
@@ -425,7 +427,12 @@ async def send_daily_summary(context: ContextTypes.DEFAULT_TYPE) -> None:
             f"🗞 Итоги дня мониторинга — {now.day:02d}.{now.month:02d}.{now.year}", summary)
         a = health.check_delivery("email", "daily_summary",
                                   None if ok else RuntimeError("отправка не удалась, см. логи"))
-        if a: health.pending_alerts.append(a)
+        # check_delivery при успехе возвращает запись «восстановлено» (без severity) —
+        # она идёт в другую очередь, иначе format_alert падает с KeyError.
+        if a and a.get("severity"):
+            health.pending_alerts.append(a)
+        elif a:
+            health.pending_resolved.append(a)
     await notify_health(context.application.bot)
 
 

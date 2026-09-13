@@ -19,7 +19,7 @@ from urllib.parse import urlparse
 
 import httpx
 
-from app import db, html_monitor, matcher, rss_monitor
+from app import db, health, html_monitor, matcher, rss_monitor
 from app.config import settings
 from app.formatters import classify_severity
 from app.llm import EVENT_TYPES, LLMUsage, classify_publications, get_provider
@@ -246,6 +246,15 @@ class Monitor:
                   "asset": "; ".join(f"{c} — {asset_names.get(c, c)}" for c in p.get("asset_codes", []))}
                  for i, p in enumerate(filtered)]
         classifications, usage, failed = await classify_publications(self.llm, items)
+        if usage.calls:
+            if len(failed) < len(items):
+                info = health.check_llm_health(True)
+                if info:
+                    health.pending_resolved.append(info)
+            else:
+                a = health.check_llm_health(False, "все батчи завершились ошибкой")
+                if a:
+                    health.pending_alerts.append(a)
         if stats:
             stats.llm_calls += usage.calls
             stats.tokens_in += usage.input_tokens

@@ -138,9 +138,9 @@ def check_source(source: dict, error: str | None) -> dict | None:
                      (source["id"],))
         streak = conn.execute("SELECT fail_streak FROM source_defs WHERE id=?",
                               (source["id"],)).fetchone()[0]
-    # 404 — страница удалена: после порога отключаем источник, чтобы не висел в проблемах
-    # вечно (резервные каналы актива продолжают работать).
-    if streak >= SOURCE_FAIL_THRESHOLD and "404" in error:
+    # 404 — страница удалена: отключаем только после длинной серии (одиночные 404
+    # бывают сбоями CDN — Lumentum отдал 404 три раза и ожил), резервные каналы работают.
+    if streak >= SOURCE_FAIL_THRESHOLD * 3 and "404" in error:
         with db.connect() as conn:
             conn.execute("UPDATE source_defs SET enabled=0 WHERE id=?", (source["id"],))
         resolve("source", key)
@@ -181,6 +181,10 @@ REPLACEMENT_SOURCES = {
     "SAUDI": ["https://www.ishares.com/us/products/271540/ishares-msci-saudi-arabia-capped-etf"],
     "NIKK": ["https://www.blackrock.com/jp/individual-en/en/products/251897/ishares-core-nikkei-225-etf"],
 }
+
+
+# Страницы, ошибочно отключённые за кратковременные 404 (сбои CDN): включаются обратно.
+REVIVE_SOURCES = ["https://www.lumentum.com/en/newsroom"]
 
 
 def rehabilitate_sources() -> list[str]:
@@ -243,6 +247,15 @@ def rehabilitate_sources() -> list[str]:
                     "AND key=? AND resolved_at IS NULL", (_now(), f"disabled:{sid}"))
                 if cur.rowcount:
                     messages.append(f"{code}: закрыто уведомление об исчезнувшей странице (id {sid})")
+    with db.connect() as conn:
+        for url in REVIVE_SOURCES:
+            cur = conn.execute(
+                "UPDATE source_defs SET enabled=1, fail_streak=0 WHERE url=? AND enabled=0", (url,))
+            if cur.rowcount:
+                row = conn.execute("SELECT id FROM source_defs WHERE url=?", (url,)).fetchone()
+                conn.execute("UPDATE health_incidents SET resolved_at=? WHERE component='source' "
+                             "AND key=? AND resolved_at IS NULL", (_now(), f"disabled:{row[0]}"))
+                messages.append(f"источник возвращён в мониторинг (404 был кратковременным): {url}")
     # Интервал Google News: не чаще раза в 3 часа и вразнобой (id вносит разброс),
     # чтобы 70+ лент не приходили к Google одновременно — он банит за это 503-ми.
     with db.connect() as conn:
@@ -347,8 +360,8 @@ def check_llm_health(ok: bool, error: str | None = None) -> dict | None:
 # --- Форматирование ---------------------------------------------------------------
 
 def format_alert(alert: dict) -> str:
-    emoji = SEVERITY_EMOJI.get(alert["severity"], "⚠️")
-    head = "Новая проблема" if alert.get("new") else f"Проблема сохраняется (×{alert['occurrences']})"
+    emoji = SEVERITY_EMOJI.get(alert.get("severity"), "⚠️")
+    head = "Новая проблема" if alert.get("new") else f"Проблема сохраняется (×{alert.get('occurrences', 1)})"
     return (f"{emoji} <b>{head}: {alert['component']}</b>\n{alert['message']}\n\n"
             f"Все открытые проблемы: /health")
 

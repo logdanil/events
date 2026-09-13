@@ -23,7 +23,11 @@ def _retry_delay_hint(exc: Exception) -> float | None:
         return 0.0
     if isinstance(exc, httpx.HTTPStatusError):
         code = exc.response.status_code
-        return 0.0 if code == 429 or code >= 500 else None
+        if code == 429:
+            # Лимиты частоты (Gemini RPM и т.п.) считаются на минуту:
+            # повтор через секунду упрётся в тот же лимит.
+            return 15.0
+        return 0.0 if code >= 500 else None
     if isinstance(exc, (httpx.TimeoutException, httpx.TransportError)):
         return 0.0
     # Telegram: RetryAfter содержит точную задержку, TimedOut/NetworkError — временные.
