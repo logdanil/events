@@ -166,6 +166,28 @@ def test_url_fix_with_open_incident_same_transaction(tmp_db, monkeypatch):
     assert all(i["key"] != f"source:{broken['id']}" for i in health.open_incidents())
 
 
+def test_kraken_blog_replaced_by_google_news(tmp_db):
+    """Kraken закрыл блог для программных клиентов (403 на все TLS-отпечатки) —
+    реабилитация переводит ленту на Google News, закрывает инцидент и
+    растягивает интервал опроса, как у остальных лент Google."""
+    for code in ("BTC", "ETH", "SOL", "XRP", "TRX", "BNB"):
+        db.upsert_asset(code, f"Индекс МосБиржи {code}", "CRYPTO")
+        db.add_source(code, "https://blog.kraken.com/feed")
+    src = next(s for s in db.list_source_defs() if "kraken" in s["url"])
+    with db.connect() as conn:
+        conn.execute("UPDATE source_defs SET fail_streak=9 WHERE id=?", (src["id"],))
+    health.report("source", f"source:{src['id']}", "недоступен 9 проверок подряд (403)")
+    messages = health.rehabilitate_sources()
+    assert any("заменён на рабочий" in m for m in messages)
+    rows = [s for s in db.list_source_defs(enabled_only=False)]
+    assert all("blog.kraken.com/feed" not in s["url"] or not s["enabled"] for s in rows)
+    fixed = next(s for s in rows if "site:blog.kraken.com" in s["url"])
+    assert fixed["enabled"] == 1 and fixed["fail_streak"] == 0
+    assert fixed["refresh_interval"] >= 180, "лента Google опрашивается раз в 3-5 часов"
+    assert all(i["key"] != f"source:{src['id']}" for i in health.open_incidents())
+    assert health.rehabilitate_sources() == [], "повторный запуск ничего не трогает"
+
+
 def test_replacement_sources_added_once(tmp_db, monkeypatch):
     db.upsert_asset("HYNIX", "Акции SK Hynix", "SHARE")
     monkeypatch.setattr(health, "REPLACEMENT_SOURCES", {"HYNIX": ["https://news.example.com/en/"],

@@ -368,7 +368,7 @@
 - **Источники мониторинга:**
   - https://bitcoincore.org/en/rss.xml
   - https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20
-  - https://blog.kraken.com/feed
+  - https://news.google.com/rss/search?q=site:blog.kraken.com+when:7d&hl=en-US&gl=US&ceid=US:en
   - https://www.coinbase.com/blog
   - https://status.coinbase.com/history.rss
   - https://announcements.bybit.com/en/
@@ -386,7 +386,7 @@
 - **Источники мониторинга:**
   - https://blog.ethereum.org/feed.xml
   - https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20
-  - https://blog.kraken.com/feed
+  - https://news.google.com/rss/search?q=site:blog.kraken.com+when:7d&hl=en-US&gl=US&ceid=US:en
   - https://www.coinbase.com/blog
   - https://status.coinbase.com/history.rss
   - https://announcements.bybit.com/en/
@@ -405,7 +405,7 @@
   - https://status.solana.com/history.rss
   - https://solana.com/news
   - https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20
-  - https://blog.kraken.com/feed
+  - https://news.google.com/rss/search?q=site:blog.kraken.com+when:7d&hl=en-US&gl=US&ceid=US:en
   - https://www.coinbase.com/blog
   - https://status.coinbase.com/history.rss
   - https://announcements.bybit.com/en/
@@ -424,7 +424,7 @@
   - https://xrpl.org/blog/
   - https://ripple.com/insights/
   - https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20
-  - https://blog.kraken.com/feed
+  - https://news.google.com/rss/search?q=site:blog.kraken.com+when:7d&hl=en-US&gl=US&ceid=US:en
   - https://www.coinbase.com/blog
   - https://status.coinbase.com/history.rss
   - https://announcements.bybit.com/en/
@@ -442,7 +442,7 @@
 - **Источники мониторинга:**
   - https://trondao.org/news/
   - https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20
-  - https://blog.kraken.com/feed
+  - https://news.google.com/rss/search?q=site:blog.kraken.com+when:7d&hl=en-US&gl=US&ceid=US:en
   - https://www.coinbase.com/blog
   - https://status.coinbase.com/history.rss
   - https://announcements.bybit.com/en/
@@ -460,7 +460,7 @@
 - **Источники мониторинга:**
   - https://www.bnbchain.org/en/blog
   - https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20
-  - https://blog.kraken.com/feed
+  - https://news.google.com/rss/search?q=site:blog.kraken.com+when:7d&hl=en-US&gl=US&ceid=US:en
   - https://www.coinbase.com/blog
   - https://status.coinbase.com/history.rss
   - https://announcements.bybit.com/en/

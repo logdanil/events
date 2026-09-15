@@ -172,6 +172,10 @@ def check_source(source: dict, error: str | None) -> dict | None:
 URL_FIXES = {
     "https://www.ishares.com/uk/individual/en/products/251751/ishares-msci-emerging-markets-ucits-etf":
         "https://www.ishares.com/us/products/239637/ishares-msci-emerging-markets-etf",
+    # Kraken закрыл блог для всех программных клиентов (403 с любым TLS-отпечатком,
+    # даже с домашнего IP) — читаем тот же блог через ленту Google News.
+    "https://blog.kraken.com/feed":
+        "https://news.google.com/rss/search?q=site:blog.kraken.com+when:7d&hl=en-US&gl=US&ceid=US:en",
 }
 
 
