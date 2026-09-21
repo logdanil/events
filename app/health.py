@@ -176,6 +176,14 @@ URL_FIXES = {
     # даже с домашнего IP) — читаем тот же блог через ленту Google News.
     "https://blog.kraken.com/feed":
         "https://news.google.com/rss/search?q=site:blog.kraken.com+when:7d&hl=en-US&gl=US&ceid=US:en",
+    # iShares удалил раздел «библиотека документов» на британском сайте (404 навсегда) —
+    # переводим STOX, DAX и INDIA на живые страницы самих фондов.
+    "https://www.ishares.com/uk/individual/en/education/library?productIdentifier=IE0008471009%7EBRS8PR212%7E251781":
+        "https://www.ishares.com/uk/individual/en/products/251781/ishares-euro-stoxx-50-ucits-etf-inc-fund",
+    "https://www.ishares.com/uk/individual/en/education/library?productIdentifier=DE0005933931%7EBRWJRG850%7E251464":
+        "https://www.ishares.com/uk/individual/en/products/251464/ishares-core-dax-ucits-etf-de-fund",
+    "https://www.ishares.com/uk/individual/en/education/library?productIdentifier=IE00BZCQB185%7EBRTGYM149%7E297617":
+        "https://www.ishares.com/uk/individual/en/products/297617/ishares-msci-india-ucits-etf-usd-acc-fund",
 }
 
 

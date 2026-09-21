@@ -30,7 +30,7 @@
 - **ISIN:** `IE0008471009`
 - **Биржа первичного листинга:** Xetra
 - **Источники мониторинга:**
-  - https://www.ishares.com/uk/individual/en/education/library?productIdentifier=IE0008471009%7EBRS8PR212%7E251781
+  - https://www.ishares.com/uk/individual/en/products/251781/ishares-euro-stoxx-50-ucits-etf-inc-fund
   - https://live.euronext.com/en/product/etfs/IE0008471009-XAMS#notices
 
 ## DAX
@@ -38,7 +38,7 @@
 - **ISIN:** `DE0005933931`
 - **Биржа первичного листинга:** Euronext
 - **Источники мониторинга:**
-  - https://www.ishares.com/uk/individual/en/education/library?productIdentifier=DE0005933931%7EBRWJRG850%7E251464
+  - https://www.ishares.com/uk/individual/en/products/251464/ishares-core-dax-ucits-etf-de-fund
 
 ## NIKK
 - **Базовый актив:** iShares Core Nikkei 225 ETF
@@ -88,7 +88,7 @@
 - **ISIN:** `IE00BZCQB185`
 - **Биржа первичного листинга:** LSE
 - **Источники мониторинга:**
-  - https://www.ishares.com/uk/individual/en/education/library?productIdentifier=IE00BZCQB185%7EBRTGYM149%7E297617
+  - https://www.ishares.com/uk/individual/en/products/297617/ishares-msci-india-ucits-etf-usd-acc-fund
 
 ## SOXQ
 - **Базовый актив:** Invesco PHLX Semiconductor ETF

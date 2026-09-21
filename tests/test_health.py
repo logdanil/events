@@ -188,6 +188,27 @@ def test_kraken_blog_replaced_by_google_news(tmp_db):
     assert health.rehabilitate_sources() == [], "повторный запуск ничего не трогает"
 
 
+def test_ishares_uk_library_replaced_by_fund_pages(tmp_db):
+    """iShares удалил «библиотеку документов» на британском сайте (404) — реабилитация
+    переводит STOX/DAX/INDIA на живые страницы фондов и закрывает инциденты."""
+    broken = [u for u in health.URL_FIXES if "education/library" in u]
+    assert len(broken) == 3, "в URL_FIXES должны быть все три сломанные ссылки iShares"
+    codes = ("STOX", "DAX", "INDIA")
+    for code, url in zip(codes, broken):
+        db.upsert_asset(code, f"iShares {code} ETF", "ETF")
+        db.add_source(code, url)
+        src = next(s for s in db.list_source_defs() if s["url"] == url)
+        health.report("source", f"source:{src['id']}", "недоступен 5 проверок подряд (404)")
+    messages = health.rehabilitate_sources()
+    assert sum("заменён на рабочий" in m for m in messages) == 3
+    urls = {s["url"] for s in db.list_source_defs()}
+    for old, new in health.URL_FIXES.items():
+        if "education/library" in old:
+            assert old not in urls and new in urls
+    assert not [i for i in health.open_incidents() if i["component"] == "source"]
+    assert health.rehabilitate_sources() == [], "повторный запуск ничего не трогает"
+
+
 def test_replacement_sources_added_once(tmp_db, monkeypatch):
     db.upsert_asset("HYNIX", "Акции SK Hynix", "SHARE")
     monkeypatch.setattr(health, "REPLACEMENT_SOURCES", {"HYNIX": ["https://news.example.com/en/"],
