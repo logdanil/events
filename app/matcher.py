@@ -42,13 +42,19 @@ CORPORATE_KEYWORDS = [
     "hard fork", "hardfork", "halving", "network upgrade", "protocol upgrade", "mainnet",
     "airdrop", "token burn", "outage", "network halt", "chain halt", "restart", "delist",
     "хардфорк", "халвинг", "остановка сети", "обновление сети", "апгрейд",
+    # товарные фьючерсы: гарантийное обеспечение, спецификации, условия обращения
+    "initial margin", "margin requirement", "margin rate", "performance bond",
+    "position limit", "circular", "amendment", "delivery month", "expiry",
+    "settlement method", "final settlement", "гарантийн", "маржинальн",
 ]
 
 # Контекст, легализующий короткий/неоднозначный тикер (SPY, EM, GOLD, DAX…).
 TICKER_CONTEXT_WORDS = {"etf", "fund", "trust", "shares", "ticker", "symbol", "nyse",
                         "nasdaq", "etn", "adr", "dividend", "distribution", "listing", "index",
                         "crypto", "cryptocurrency", "blockchain", "token", "coin", "network",
-                        "mainnet", "protocol", "exchange", "binance", "coinbase", "kraken"}
+                        "mainnet", "protocol", "exchange", "binance", "coinbase", "kraken",
+                        "futures", "margin", "lme", "cme", "lbma", "contract", "commodity",
+                        "bullion"}
 
 # Тикеры, совпадающие с обычными словами: засчитываются только в скобках «(COIN)»,
 # после «NASDAQ:/NYSE:/ticker/symbol» либо на своей странице — общий контекст не спасает.

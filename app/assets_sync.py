@@ -174,7 +174,8 @@ _SEC_BY_CIK = ("https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={
 _CORP_TERMS = "(split OR dividend OR delisting OR merger OR acquisition OR listing OR spin-off OR tender OR ADR)"
 
 
-_COMMODITY_TERMS = "(contract OR specification OR exchange OR delivery OR settlement OR notice)"
+_COMMODITY_TERMS = ('(margin OR "position limit" OR contract OR specification '
+                    'OR delivery OR settlement OR notice)')
 
 
 def _news_query(asset: dict) -> str:
@@ -202,8 +203,9 @@ def ensure_backup_sources() -> dict:
     """Для каждого актива гарантирует резервные каналы:
     - SEC EDGAR по CIK (официальные филинги эмитента/фонда) — если CIK известен;
     - Google News RSS по имени и тикеру — для всех.
-    Идемпотентно: существующие источники не трогаются."""
-    report = {"sec_added": 0, "news_added": 0}
+    Идемпотентно: существующие источники не трогаются; при смене текста запроса
+    Google News лента актива обновляется на месте, а не дублируется."""
+    report = {"sec_added": 0, "news_added": 0, "news_updated": 0}
     for asset in db.list_assets():
         existing = {s["url"] for s in asset.get("sources", [])}
         if asset.get("cik"):
@@ -214,11 +216,23 @@ def ensure_backup_sources() -> dict:
                 report["sec_added"] += 1
         url = _GOOGLE_NEWS.format(q=_news_query(asset))
         if url not in existing:
-            # Google банит частые запросы: резервные ленты опрашиваем раз в 3-4 часа.
-            db.add_source(asset["code"], url, kind="news", source_type="NEWS",
-                          refresh_interval=180 + hash(asset["code"]) % 120)
-            report["news_added"] += 1
-    if report["sec_added"] or report["news_added"]:
-        log.info("Резервные источники: SEC по CIK +%d, Google News +%d",
-                 report["sec_added"], report["news_added"])
+            old = next((s for s in asset.get("sources", [])
+                        if "news.google.com/rss/search" in s["url"]), None)
+            if old:
+                # Запрос изменился — переписываем URL существующей ленты актива.
+                with db.connect() as conn:
+                    taken = conn.execute("SELECT 1 FROM source_defs WHERE url=?",
+                                         (url,)).fetchone()
+                    if not taken:
+                        conn.execute("UPDATE source_defs SET url=?, fail_streak=0 "
+                                     "WHERE id=?", (url, old["id"]))
+                        report["news_updated"] += 1
+            else:
+                # Google банит частые запросы: резервные ленты опрашиваем раз в 3-4 часа.
+                db.add_source(asset["code"], url, kind="news", source_type="NEWS",
+                              refresh_interval=180 + hash(asset["code"]) % 120)
+                report["news_added"] += 1
+    if any(report.values()):
+        log.info("Резервные источники: SEC по CIK +%d, Google News +%d (обновлено %d)",
+                 report["sec_added"], report["news_added"], report["news_updated"])
     return report

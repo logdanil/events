@@ -24,7 +24,7 @@ EVENT_TYPES = [
     "stock_split", "reverse_split", "dividend", "special_dividend", "delisting",
     "trading_suspension", "merger", "acquisition", "spin_off", "adr_ratio_change",
     "symbol_change", "isin_change", "etf_liquidation", "methodology_change",
-    "index_rebalance", "contract_specification_change", "bankruptcy",
+    "index_rebalance", "contract_specification_change", "margin_change", "bankruptcy",
     "tender_offer", "rights_issue", "share_issuance", "capital_return",
     "listing", "conversion", "name_change",
     "network_upgrade", "network_outage", "halving", "token_burn", "other",
@@ -67,6 +67,11 @@ is_event=true ТОЛЬКО для первичного сообщения о с�
 с датой активации (network_upgrade), остановка или перезапуск сети (network_outage), халвинг (halving),
 делистинг монеты с крупной биржи (delisting), сжигание токенов (token_burn), изменение методики индекса.
 Динамика цены, листинг новых торговых пар, партнёрства, маркетинговые акции бирж — НЕ событие.
+Товарные контракты (LME/CME/ICE/LBMA — металлы, нефть, газ, софты): событие — изменение
+гарантийного обеспечения/маржинальных требований биржей (margin_change), изменение спецификации,
+лота, шага цены, месяцев поставки или метода расчёта (contract_specification_change), делистинг
+контракта, приостановка торгов, изменение методологии ценового эталона (methodology_change).
+Движение цены, запасы, прогнозы спроса и предложения — НЕ событие.
 is_event=false обязательно, если:
 - публикация НЕ о самом активе из поля "asset" (не о его эмитенте, фонде или контракте) —
   событие у другой компании не относится к этому активу, даже если оно значимое;

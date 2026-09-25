@@ -263,54 +263,63 @@
 ## ALUM
 - **Базовый актив:** LME Aluminium
 - **Биржа первичного листинга:** London Metal Exchange
+- **Алиасы:** Aluminium, Aluminum, LME Aluminium
 - **Источники мониторинга:**
   - https://www.lme.com/Metals/Non-ferrous/LME-Aluminium/Contract-specifications?sc_camp=4F52AC6F65094CF9B8E4DD64DB07ADBE
 
 ## COPPER
 - **Базовый актив:** LME Copper
 - **Биржа первичного листинга:** London Metal Exchange
+- **Алиасы:** Copper, LME Copper
 - **Источники мониторинга:**
   - https://www.lme.com/en/Metals/Non-ferrous/LME-Copper/Contract-specifications
 
 ## ZINC
 - **Базовый актив:** LME Zinc
 - **Биржа первичного листинга:** London Metal Exchange
+- **Алиасы:** Zinc, LME Zinc
 - **Источники мониторинга:**
   - https://www.lme.com/Metals/Non-ferrous/LME-Zinc/Contract-specifications
 
 ## NICKEL
 - **Базовый актив:** LME Nickel
 - **Биржа первичного листинга:** London Metal Exchange
+- **Алиасы:** Nickel, LME Nickel
 - **Источники мониторинга:**
   - https://www.lme.com/Metals/Non-ferrous/LME-Nickel/Contract-specifications
 
 ## BR, BRM
 - **Базовый актив:** ICE Brent Index, ICE Brent futures
 - **Биржа первичного листинга:** ICE Futures Europe, ICE Endex
+- **Алиасы:** Brent, Brent Crude
 - **Источники мониторинга:**
   - https://www.ice.com/products/219
 
 ## WTI
 - **Базовый актив:** CME Crude Oil futures
 - **Биржа первичного листинга:** CME Group
+- **Алиасы:** WTI, Crude Oil, Light Sweet Crude
 - **Источники мониторинга:**
   - https://www.cmegroup.com/markets/energy/crude-oil/light-sweet-crude.html
 
 ## NG, NGM
 - **Базовый актив:** Henry Hub natural gas futures
 - **Биржа первичного листинга:** CME Group
+- **Алиасы:** Henry Hub, Natural Gas
 - **Источники мониторинга:**
   - https://www.cmegroup.com/markets/energy/natural-gas/natural-gas.contractSpecs.html
 
 ## SUGR
 - **Базовый актив:** Sugar No.11 Futures
 - **Биржа первичного листинга:** ICE Futures US
+- **Алиасы:** Sugar No. 11, Sugar
 - **Источники мониторинга:**
   - https://www.ice.com/products/23/Sugar-No-11-Futures
 
 ## GOLD
 - **Базовый актив:** LBMA precious metal prices (international prices for gold, silver, platinum and palladium)
 - **Биржа первичного листинга:** London Bullion Market Assosiation
+- **Алиасы:** Gold, Gold price
 - **Источники мониторинга:**
   - https://www.lbma.org.uk/prices-and-data/precious-metal-prices#/prices-explained
   - https://www.cmegroup.com/markets/metals/precious/gold.contractSpecs.html
@@ -318,6 +327,7 @@
 ## SILV
 - **Базовый актив:** LBMA precious metal prices (international prices for gold, silver, platinum and palladium)
 - **Биржа первичного листинга:** London Bullion Market Assosiation
+- **Алиасы:** Silver, Silver price
 - **Источники мониторинга:**
   - https://www.lbma.org.uk/prices-and-data/precious-metal-prices#/prices-explained
   - https://www.cmegroup.com/markets/metals/precious/silver.contractSpecs.html
@@ -325,6 +335,7 @@
 ## PLT
 - **Базовый актив:** LBMA precious metal prices (international prices for gold, silver, platinum and palladium)
 - **Биржа первичного листинга:** London Bullion Market Assosiation
+- **Алиасы:** Platinum
 - **Источники мониторинга:**
   - https://www.lbma.org.uk/prices-and-data/precious-metal-prices#/prices-explained
   - https://www.cmegroup.com/markets/metals/precious/platinum.contractSpecs.html
@@ -332,6 +343,7 @@
 ## PLD
 - **Базовый актив:** LBMA precious metal prices (international prices for gold, silver, platinum and palladium)
 - **Биржа первичного листинга:** London Bullion Market Assosiation
+- **Алиасы:** Palladium
 - **Источники мониторинга:**
   - https://www.lbma.org.uk/prices-and-data/precious-metal-prices#/prices-explained
   - https://www.cmegroup.com/markets/metals/precious/palladium.contractSpecs.html
@@ -339,24 +351,28 @@
 ## COCOA
 - **Базовый актив:** Cocoa Futures
 - **Биржа первичного листинга:** ICE Futures US
+- **Алиасы:** Cocoa
 - **Источники мониторинга:**
   - https://www.ice.com/products/7/Cocoa-Futures
 
 ## COFFEE
 - **Базовый актив:** US Coffee C futures
 - **Биржа первичного листинга:** ICE Futures US
+- **Алиасы:** Coffee C, Coffee, Arabica
 - **Источники мониторинга:**
   - https://www.ice.com/products/15/Coffee-C-Futures
 
 ## TTF
 - **Базовый актив:** Dutch TTF Natural Gas Futures
 - **Биржа первичного листинга:** ICE Futures Europe, ICE Endex
+- **Алиасы:** Dutch TTF, TTF
 - **Источники мониторинга:**
   - https://www.ice.com/products/27996665/Dutch-TTF-Natural-Gas-Futures
 
 ## ORANGE
 - **Базовый актив:** FCOJ-A Futures
 - **Биржа первичного листинга:** ICE Futures US
+- **Алиасы:** Orange Juice, FCOJ
 - **Источники мониторинга:**
   - https://www.ice.com/products/30
 

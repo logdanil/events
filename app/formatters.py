@@ -38,6 +38,7 @@ EVENT_TYPE_RU = {
     "methodology_change": "Изменение методологии фонда",
     "index_rebalance": "Ребалансировка индекса",
     "contract_specification_change": "Изменение спецификации контракта",
+    "margin_change": "Изменение гарантийного обеспечения",
     "bankruptcy": "Банкротство",
     "tender_offer": "Тендерное предложение",
     "rights_issue": "Размещение прав",

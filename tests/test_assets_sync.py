@@ -77,9 +77,26 @@ def test_backup_sources_for_every_asset(tmp_db):
     assert any("news.google.com/rss/search" in u and "Taiwan+Semiconductor" in u for u in tsm_urls)
     alum_urls = [s["url"] for s in db.get_asset("ALUM")["sources"]]
     assert not any("sec.gov" in u for u in alum_urls), "без CIK SEC-лента не добавляется"
-    assert any("news.google.com" in u for u in alum_urls)
+    assert any("news.google.com" in u and "margin" in u for u in alum_urls), \
+        "запрос по товарному активу включает термины ГО"
     # Идемпотентность.
-    assert assets_sync.ensure_backup_sources() == {"sec_added": 0, "news_added": 0}
+    assert assets_sync.ensure_backup_sources() == {"sec_added": 0, "news_added": 0,
+                                                   "news_updated": 0}
+
+
+def test_backup_news_query_updated_in_place(tmp_db):
+    """При смене текста запроса Google News лента актива переписывается на месте,
+    а не добавляется второй раз (иначе накапливались бы дубли лент)."""
+    db.upsert_asset("ALUM", "LME Aluminium", "ASSET")
+    old_url = ("https://news.google.com/rss/search?q=LME+Aluminium+futures+"
+               "%28contract+OR+specification%29+when:3d&hl=en-US&gl=US&ceid=US:en")
+    db.add_source("ALUM", old_url, kind="news", source_type="NEWS")
+    report = assets_sync.ensure_backup_sources()
+    assert report["news_updated"] == 1 and report["news_added"] == 0
+    urls = [s["url"] for s in db.get_asset("ALUM")["sources"]
+            if "news.google.com" in s["url"]]
+    assert len(urls) == 1 and "margin" in urls[0], "лента одна и с новым запросом"
+    assert assets_sync.ensure_backup_sources()["news_updated"] == 0
 
 
 def test_per_company_sec_feed_sets_cik_from_url():

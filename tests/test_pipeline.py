@@ -240,3 +240,62 @@ def test_routine_sec_forms_filtered(tmp_db):
             {**base, "url": "https://sec.gov/f/8k", "title": "8-K - Current report", "form_type": "8-K"}]
     kept = matcher.filter_publications(pubs, profiles, lookback_days=3, stats=ScanStats())
     assert [k["url"] for k in kept] == ["https://sec.gov/f/8k"]
+
+
+# --- Товарные активы: ГО, спецификации, циркуляры ----------------------------
+
+def _commodity_assets():
+    return [
+        {"code": "ALUM", "name": "LME Aluminium", "instrument_type": "ASSET",
+         "aliases": ["Aluminium", "Aluminum", "LME Aluminium"]},
+        {"code": "GOLD", "name": "LBMA precious metal prices", "instrument_type": "ASSET",
+         "aliases": ["Gold", "Gold price"]},
+        {"code": "WTI", "name": "CME Crude Oil futures", "instrument_type": "ASSET",
+         "aliases": ["WTI", "Crude Oil", "Light Sweet Crude"]},
+    ]
+
+
+def test_commodity_margin_and_spec_keywords():
+    """Анонсы бирж об изменении ГО/спецификаций проходят keyword-фильтр."""
+    for title in (
+        "LME to raise initial margin for aluminium contracts",
+        "CME lowers performance bond requirements for crude oil futures",
+        "ICE circular: amendments to Sugar No. 11 delivery month",
+        "CME Group notice on position limit changes for Henry Hub",
+        "Биржа повышает гарантийное обеспечение по фьючерсам",
+    ):
+        assert matcher.has_corporate_keywords({"title": title, "text": ""}), title
+    # движение цены — не событие и не должно грузить модель
+    assert not matcher.has_corporate_keywords(
+        {"title": "Gold price hits record high on Fed cut bets", "text": ""})
+
+
+def test_commodity_pub_matches_asset():
+    profiles = matcher.build_profiles(_commodity_assets())
+    pub = {"title": "LME to raise initial margin for aluminium contracts", "text": ""}
+    assert matcher.match_assets(pub, profiles) == ["ALUM"]
+    # короткий алиас Gold: тикерный путь с товарным контекстом (margin/futures/cme)
+    pub2 = {"title": "CME raises margin requirements for gold futures", "text": ""}
+    assert "GOLD" in matcher.match_assets(pub2, profiles)
+    # заголовок о ценах без товарного события не должен цеплять WTI по слову crude
+    pub3 = {"title": "Oil analysts debate demand outlook", "text": ""}
+    assert matcher.match_assets(pub3, profiles) == []
+
+
+def test_commodity_margin_pub_passes_full_filter(tmp_db):
+    """Сквозной прогон: новость об изменении ГО доходит до классификации."""
+    index = matcher.build_profiles(_commodity_assets())
+    pubs = [{"url": "https://ex.com/margin", "title":
+             "LME to raise initial margin for aluminium contracts", "text": "",
+             "published_at": None, "published_dt": None, "source": "s", "subscribers": []}]
+    stats = ScanStats()
+    kept = matcher.filter_publications(pubs, index, lookback_days=3, stats=stats)
+    assert len(kept) == 1 and kept[0]["asset_codes"] == ["ALUM"]
+
+
+def test_margin_change_event_type_known():
+    """Тип «изменение ГО» известен классификатору и имеет русскую подпись."""
+    from app import llm, formatters
+    assert "margin_change" in llm.EVENT_TYPES
+    assert "margin_change" in llm.PROMPT_HEADER
+    assert formatters.EVENT_TYPE_RU["margin_change"] == "Изменение гарантийного обеспечения"
