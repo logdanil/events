@@ -209,6 +209,46 @@ def test_ishares_uk_library_replaced_by_fund_pages(tmp_db):
     assert health.rehabilitate_sources() == [], "повторный запуск ничего не трогает"
 
 
+def test_lme_pages_merge_into_shared_circulars_feed(tmp_db):
+    """LME блокирует дата-центры: четыре страницы металлов сводятся в одну ленту
+    циркуляров Google News, подписки всех металлов сохраняются, инциденты закрыты."""
+    broken = [u for u in health.URL_FIXES if "lme.com/" in u and "news.google" not in u]
+    assert len(broken) == 4
+    codes = ("ALUM", "COPPER", "ZINC", "NICKEL")
+    for code, url in zip(codes, broken):
+        db.upsert_asset(code, f"LME {code}", "ASSET")
+        db.add_source(code, url)
+        src = next(s for s in db.list_source_defs() if s["url"] == url)
+        health.report("source", f"source:{src['id']}", "недоступен 18 проверок подряд (403)")
+    messages = health.rehabilitate_sources()
+    assert sum("заменён на рабочий" in m for m in messages) == 4
+    feeds = [s for s in db.list_source_defs() if "site:lme.com" in s["url"]]
+    assert len(feeds) == 1 and feeds[0]["enabled"] == 1, "одна общая лента вместо четырёх"
+    assert set(feeds[0].get("subscribers") or []) >= set(codes), \
+        "подписки всех четырёх металлов перенесены на общую ленту"
+    assert not [i for i in health.open_incidents() if i["component"] == "source"]
+    assert health.rehabilitate_sources() == []
+
+
+def test_url_fix_closes_disabled_incident(tmp_db, monkeypatch):
+    """Регресс TRON: источник авто-отключён за 404 (инцидент disabled:) — замена URL
+    включает его обратно и закрывает именно этот инцидент, а не только source:."""
+    db.upsert_asset("TRX", "Индекс МосБиржи Трона (MOEXTRX)", "CRYPTO")
+    db.add_source("TRX", "https://dead.example.org/news/")
+    src = next(s for s in db.list_source_defs() if "dead.example" in s["url"])
+    with db.connect() as conn:
+        conn.execute("UPDATE source_defs SET enabled=0, fail_streak=9 WHERE id=?", (src["id"],))
+    health.report("source", f"disabled:{src['id']}", "страница не существует (404, 9 раз)",
+                  severity="info")
+    monkeypatch.setattr(health, "URL_FIXES",
+                        {"https://dead.example.org/news/": "https://alive.example.org/rss"})
+    messages = health.rehabilitate_sources()
+    assert any("заменён на рабочий" in m for m in messages)
+    fixed = next(s for s in db.list_source_defs(enabled_only=False) if s["id"] == src["id"])
+    assert fixed["enabled"] == 1 and fixed["url"] == "https://alive.example.org/rss"
+    assert all(i["key"] != f"disabled:{src['id']}" for i in health.open_incidents())
+
+
 def test_replacement_sources_added_once(tmp_db, monkeypatch):
     db.upsert_asset("HYNIX", "Акции SK Hynix", "SHARE")
     monkeypatch.setattr(health, "REPLACEMENT_SOURCES", {"HYNIX": ["https://news.example.com/en/"],

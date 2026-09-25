@@ -265,28 +265,28 @@
 - **Биржа первичного листинга:** London Metal Exchange
 - **Алиасы:** Aluminium, Aluminum, LME Aluminium
 - **Источники мониторинга:**
-  - https://www.lme.com/Metals/Non-ferrous/LME-Aluminium/Contract-specifications?sc_camp=4F52AC6F65094CF9B8E4DD64DB07ADBE
+  - https://news.google.com/rss/search?q=site:lme.com+when:7d&hl=en-US&gl=US&ceid=US:en
 
 ## COPPER
 - **Базовый актив:** LME Copper
 - **Биржа первичного листинга:** London Metal Exchange
 - **Алиасы:** Copper, LME Copper
 - **Источники мониторинга:**
-  - https://www.lme.com/en/Metals/Non-ferrous/LME-Copper/Contract-specifications
+  - https://news.google.com/rss/search?q=site:lme.com+when:7d&hl=en-US&gl=US&ceid=US:en
 
 ## ZINC
 - **Базовый актив:** LME Zinc
 - **Биржа первичного листинга:** London Metal Exchange
 - **Алиасы:** Zinc, LME Zinc
 - **Источники мониторинга:**
-  - https://www.lme.com/Metals/Non-ferrous/LME-Zinc/Contract-specifications
+  - https://news.google.com/rss/search?q=site:lme.com+when:7d&hl=en-US&gl=US&ceid=US:en
 
 ## NICKEL
 - **Базовый актив:** LME Nickel
 - **Биржа первичного листинга:** London Metal Exchange
 - **Алиасы:** Nickel, LME Nickel
 - **Источники мониторинга:**
-  - https://www.lme.com/Metals/Non-ferrous/LME-Nickel/Contract-specifications
+  - https://news.google.com/rss/search?q=site:lme.com+when:7d&hl=en-US&gl=US&ceid=US:en
 
 ## BR, BRM
 - **Базовый актив:** ICE Brent Index, ICE Brent futures
@@ -456,7 +456,7 @@
 - **Базовый актив:** Индекс МосБиржи Трона (MOEXTRX)
 - **Биржа первичного листинга:** MOEX
 - **Источники мониторинга:**
-  - https://trondao.org/news/
+  - https://news.google.com/rss/search?q=%22TRON+DAO%22+OR+trondao+when:7d&hl=en-US&gl=US&ceid=US:en
   - https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20
   - https://news.google.com/rss/search?q=site:blog.kraken.com+when:7d&hl=en-US&gl=US&ceid=US:en
   - https://www.coinbase.com/blog

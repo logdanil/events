@@ -168,6 +168,11 @@ def check_source(source: dict, error: str | None) -> dict | None:
     return None
 
 
+# Циркуляры LME/LME Clear через индекс Google News: сама LME блокирует
+# адреса дата-центров, а её уведомления (маржа, спецификации) индексируются.
+_LME_CIRCULARS_FEED = ("https://news.google.com/rss/search?q=site:lme.com+when:7d"
+                       "&hl=en-US&gl=US&ceid=US:en")
+
 # Сломанные у владельцев страницы → рабочие замены (применяется при старте).
 URL_FIXES = {
     "https://www.ishares.com/uk/individual/en/products/251751/ishares-msci-emerging-markets-ucits-etf":
@@ -184,6 +189,21 @@ URL_FIXES = {
         "https://www.ishares.com/uk/individual/en/products/251464/ishares-core-dax-ucits-etf-de-fund",
     "https://www.ishares.com/uk/individual/en/education/library?productIdentifier=IE00BZCQB185%7EBRTGYM149%7E297617":
         "https://www.ishares.com/uk/individual/en/products/297617/ishares-msci-india-ucits-etf-usd-acc-fund",
+    # LME блокирует адреса дата-центров на всех TLS-отпечатках (403 с августа) —
+    # читаем циркуляры LME/LME Clear (маржа, торги) через индекс Google News;
+    # четыре страницы металлов сводятся в одну общую ленту с четырьмя подписками.
+    "https://www.lme.com/Metals/Non-ferrous/LME-Aluminium/Contract-specifications?sc_camp=4F52AC6F65094CF9B8E4DD64DB07ADBE":
+        _LME_CIRCULARS_FEED,
+    "https://www.lme.com/en/Metals/Non-ferrous/LME-Copper/Contract-specifications":
+        _LME_CIRCULARS_FEED,
+    "https://www.lme.com/Metals/Non-ferrous/LME-Zinc/Contract-specifications":
+        _LME_CIRCULARS_FEED,
+    "https://www.lme.com/Metals/Non-ferrous/LME-Nickel/Contract-specifications":
+        _LME_CIRCULARS_FEED,
+    # TRON DAO удалил раздел новостей с сайта (404), официальный Medium заброшен —
+    # события фонда и сети читаем через ленту Google News.
+    "https://trondao.org/news/":
+        "https://news.google.com/rss/search?q=%22TRON+DAO%22+OR+trondao+when:7d&hl=en-US&gl=US&ceid=US:en",
 }
 
 
@@ -235,8 +255,10 @@ def rehabilitate_sources() -> list[str]:
                 conn.execute("UPDATE source_defs SET url=?, enabled=1, fail_streak=0 WHERE id=?",
                              (new, old_row[0]))
             # В той же транзакции: отдельное соединение (resolve) упёрлось бы в блокировку.
+            # Закрываем и «недоступен» (source:), и «отключён за 404» (disabled:).
             conn.execute("UPDATE health_incidents SET resolved_at=? WHERE component='source' "
-                         "AND key=? AND resolved_at IS NULL", (_now(), f"source:{old_row[0]}"))
+                         "AND key IN (?, ?) AND resolved_at IS NULL",
+                         (_now(), f"source:{old_row[0]}", f"disabled:{old_row[0]}"))
             messages.append(f"сломанный URL заменён на рабочий: {new}")
     # Замены исчезнувших страниц — отдельными соединениями уже после транзакции выше.
     for code, urls in REPLACEMENT_SOURCES.items():
