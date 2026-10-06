@@ -249,6 +249,35 @@ def test_url_fix_closes_disabled_incident(tmp_db, monkeypatch):
     assert all(i["key"] != f"disabled:{src['id']}" for i in health.open_incidents())
 
 
+def test_already_fixed_url_still_closes_stale_incident(tmp_db, monkeypatch):
+    """Регресс TRON: замена уже применена ранее (рабочая лента есть, старый источник
+    выключен), но инцидент «отключён за 404» завис — реабилитация обязана его закрыть."""
+    db.upsert_asset("TRX", "Индекс МосБиржи Трона (MOEXTRX)", "CRYPTO")
+    db.add_source("TRX", "https://dead.example.org/news/")
+    db.add_source("TRX", "https://alive.example.org/rss")
+    old = next(s for s in db.list_source_defs() if "dead.example" in s["url"])
+    with db.connect() as conn:
+        conn.execute("UPDATE source_defs SET enabled=0 WHERE id=?", (old["id"],))
+    health.report("source", f"disabled:{old['id']}", "страница не существует (404, 9 раз)",
+                  severity="info")
+    monkeypatch.setattr(health, "URL_FIXES",
+                        {"https://dead.example.org/news/": "https://alive.example.org/rss"})
+    messages = health.rehabilitate_sources()
+    assert any("зависшее уведомление" in m for m in messages)
+    assert all(i["key"] != f"disabled:{old['id']}" for i in health.open_incidents())
+    assert health.rehabilitate_sources() == [], "повторный запуск ничего не трогает"
+
+
+def test_telegram_conflict_incident_closed_on_restart(tmp_db):
+    """Conflict в getUpdates — перекрытие двух экземпляров при деплое; после рестарта
+    старую запись закрываем вместе с прочими сетевыми сбоями Telegram."""
+    health.report("bot", "handler:Conflict: terminated by other getUpdates request",
+                  "Conflict: terminated by other getUpdates request")
+    messages = health.rehabilitate_sources()
+    assert any("Telegram" in m for m in messages)
+    assert health.open_incidents() == []
+
+
 def test_replacement_sources_added_once(tmp_db, monkeypatch):
     db.upsert_asset("HYNIX", "Акции SK Hynix", "SHARE")
     monkeypatch.setattr(health, "REPLACEMENT_SOURCES", {"HYNIX": ["https://news.example.com/en/"],

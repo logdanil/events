@@ -204,6 +204,12 @@ URL_FIXES = {
     # события фонда и сети читаем через ленту Google News.
     "https://trondao.org/news/":
         "https://news.google.com/rss/search?q=%22TRON+DAO%22+OR+trondao+when:7d&hl=en-US&gl=US&ceid=US:en",
+    # iShares перестал отдавать страницы фондов по номеру без имени (403 на все
+    # отпечатки) — переводим на полные адреса тех же страниц.
+    "https://www.ishares.com/us/products/239680/":
+        "https://www.ishares.com/us/products/239680/ishares-msci-south-africa-etf",
+    "https://www.ishares.com/us/products/271542/":
+        "https://www.ishares.com/us/products/271542/ishares-msci-saudi-arabia-etf",
 }
 
 
@@ -241,7 +247,15 @@ def rehabilitate_sources() -> list[str]:
                 continue
             new_row = conn.execute("SELECT id, enabled FROM source_defs WHERE url=?", (new,)).fetchone()
             if new_row and not old_row[1] and new_row[1]:
-                continue  # уже починено ранее
+                # Уже починено ранее — но зависшие уведомления по старому источнику
+                # всё равно закрываем (регресс TRON: инцидент «отключён» пережил замену).
+                cur = conn.execute(
+                    "UPDATE health_incidents SET resolved_at=? WHERE component='source' "
+                    "AND key IN (?, ?) AND resolved_at IS NULL",
+                    (_now(), f"source:{old_row[0]}", f"disabled:{old_row[0]}"))
+                if cur.rowcount:
+                    messages.append(f"закрыто зависшее уведомление по заменённому источнику: {old}")
+                continue
             if new_row:
                 # Рабочий URL уже есть отдельным источником: сломанный выключаем,
                 # его подписки переносим на рабочий (UNIQUE по url не даёт переименовать).
@@ -309,7 +323,7 @@ def rehabilitate_sources() -> list[str]:
         cur = conn.execute(
             "UPDATE health_incidents SET resolved_at=? WHERE component='bot' AND resolved_at IS NULL "
             "AND (key LIKE 'handler:NetworkError%' OR key LIKE 'handler:TimedOut%' "
-            "OR key LIKE 'handler:RetryAfter%')", (_now(),))
+            "OR key LIKE 'handler:RetryAfter%' OR key LIKE 'handler:Conflict%')", (_now(),))
         if cur.rowcount:
             messages.append("закрыты записи о временных сетевых сбоях Telegram")
     return messages
