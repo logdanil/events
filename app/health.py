@@ -204,6 +204,10 @@ URL_FIXES = {
     # события фонда и сети читаем через ленту Google News.
     "https://trondao.org/news/":
         "https://news.google.com/rss/search?q=%22TRON+DAO%22+OR+trondao+when:7d&hl=en-US&gl=US&ceid=US:en",
+    # Invesco сломал старый адрес ньюсрума с параметрами фильтра (500 у всех) —
+    # переводим на действующий раздел новостей.
+    "https://www.invesco.com/us/newsroom?FilterList=FCLASS_SUBJECT_MATTER%26NEWSROOM%2FPRESS+RELEASES&audienceType=Advisor":
+        "https://www.invesco.com/us/en/newsroom.html",
     # iShares перестал отдавать страницы фондов по номеру без имени (403 на все
     # отпечатки) — переводим на полные адреса тех же страниц.
     "https://www.ishares.com/us/products/239680/":

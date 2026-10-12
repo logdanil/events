@@ -95,7 +95,7 @@
 - **ISIN:** `US46138G6153`
 - **Биржа первичного листинга:** Nasdaq
 - **Источники мониторинга:**
-  - https://www.invesco.com/us/newsroom?FilterList=FCLASS_SUBJECT_MATTER%26NEWSROOM%2FPRESS+RELEASES&audienceType=Advisor
+  - https://www.invesco.com/us/en/newsroom.html
   - https://www.nasdaq.com/market-activity/etf/soxq/press-releases
 
 ## TENCENT
