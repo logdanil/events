@@ -268,6 +268,28 @@ def test_already_fixed_url_still_closes_stale_incident(tmp_db, monkeypatch):
     assert health.rehabilitate_sources() == [], "повторный запуск ничего не трогает"
 
 
+@pytest.mark.asyncio
+async def test_telegram_conflict_during_deploy_overlap_not_reported(tmp_db, monkeypatch):
+    """Conflict сразу после старта — перекрытие экземпляров при деплое: не инцидент.
+    Затянувшийся Conflict (минуты спустя) — настоящий двойной запуск: инцидент."""
+    import time as _time
+    from telegram.error import Conflict
+    from unittest.mock import MagicMock, AsyncMock
+    from app import main as app_main
+    context = MagicMock()
+    context.error = Conflict("terminated by other getUpdates request")
+    context.application.bot = AsyncMock()
+    # внутри окна старта — тишина
+    monkeypatch.setattr(app_main, "_PROCESS_STARTED_AT", _time.monotonic())
+    await app_main.on_error(None, context)
+    assert health.open_incidents() == [], "Conflict при деплое — не инцидент"
+    # спустя окно — реальная проблема двух экземпляров, инцидент создаётся
+    monkeypatch.setattr(app_main, "_PROCESS_STARTED_AT",
+                        _time.monotonic() - app_main.CONFLICT_GRACE_SECONDS - 1)
+    await app_main.on_error(None, context)
+    assert any(i["key"] == "handler:Conflict" for i in health.open_incidents())
+
+
 def test_telegram_conflict_incident_closed_on_restart(tmp_db):
     """Conflict в getUpdates — перекрытие двух экземпляров при деплое; после рестарта
     старую запись закрываем вместе с прочими сетевыми сбоями Telegram."""

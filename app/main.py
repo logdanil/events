@@ -4,6 +4,7 @@ import asyncio
 import html
 import json
 import logging
+import time
 from datetime import datetime, time as dt_time
 from pathlib import Path
 
@@ -775,10 +776,16 @@ async def post_init(app: Application) -> None:
     log.info("Bot initialized with %s minute interval; daily summary at 19:00 MSK", interval)
 
 
-from telegram.error import NetworkError as _TgNetworkError, RetryAfter as _TgRetryAfter, \
-    TimedOut as _TgTimedOut
+from telegram.error import Conflict as _TgConflict, NetworkError as _TgNetworkError, \
+    RetryAfter as _TgRetryAfter, TimedOut as _TgTimedOut
 
 TRANSIENT_TELEGRAM_ERRORS = (_TgNetworkError, _TgTimedOut, _TgRetryAfter)
+
+# Окно перекрытия экземпляров при деплое: новый контейнер уже запущен, старый ещё
+# опрашивает getUpdates и ловит Conflict. Это штатно и длится секунды — Conflict в
+# первые минуты после старта не инцидент. Дольше — реально два экземпляра, сообщаем.
+_PROCESS_STARTED_AT = time.monotonic()
+CONFLICT_GRACE_SECONDS = 180
 
 
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -790,6 +797,13 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     if isinstance(err, TRANSIENT_TELEGRAM_ERRORS):
         log.warning("Сетевой сбой Telegram (повтор автоматический): %s: %s",
                     type(err).__name__, str(err)[:200])
+        return
+    # Conflict сразу после старта — перекрытие экземпляров при деплое, не инцидент;
+    # иначе прежняя запись воскресала при каждом деплое и висела в /health вечно.
+    if (isinstance(err, _TgConflict)
+            and time.monotonic() - _PROCESS_STARTED_AT < CONFLICT_GRACE_SECONDS):
+        log.warning("Conflict getUpdates при старте (перекрытие деплоя, пройдёт само): %s",
+                    str(err)[:200])
         return
     log.exception("Необработанная ошибка в обработчике", exc_info=err)
     try:
