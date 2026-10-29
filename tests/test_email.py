@@ -47,7 +47,7 @@ async def test_send_email_calls_smtp(tmp_db, monkeypatch):
     db.add_email_recipient("dest@example.com")
     captured = {}
 
-    def fake_send(subject, html_body, plain_body, recipients):
+    def fake_send(subject, html_body, plain_body, recipients, attachments=None):
         captured.update(subject=subject, html=html_body, plain=plain_body, recipients=recipients)
 
     monkeypatch.setattr(emailer, "_send_sync", fake_send)
@@ -86,7 +86,7 @@ async def test_send_email_prefers_sendgrid_over_smtp(tmp_db, monkeypatch):
     db.add_email_recipient("dest@example.com")
     called = {}
 
-    async def fake_sendgrid(subject, html_body, plain_body, recipients):
+    async def fake_sendgrid(subject, html_body, plain_body, recipients, attachments=None):
         called["via"] = "sendgrid"
         called["recipients"] = recipients
 
@@ -108,7 +108,7 @@ async def test_gmail_has_top_priority(tmp_db, monkeypatch):
     db.add_email_recipient("dest@example.com")
     called = {}
 
-    async def fake_gmail(subject, html_body, plain_body, recipients):
+    async def fake_gmail(subject, html_body, plain_body, recipients, attachments=None):
         called["via"] = "gmail"
         called["recipients"] = recipients
 
@@ -141,7 +141,7 @@ async def test_smtp2go_has_top_priority(tmp_db, monkeypatch):
     db.add_email_recipient("dest@example.com")
     called = {}
 
-    async def fake_smtp2go(subject, html_body, plain_body, recipients):
+    async def fake_smtp2go(subject, html_body, plain_body, recipients, attachments=None):
         called["via"] = "smtp2go"
         called["recipients"] = recipients
 
@@ -164,7 +164,7 @@ async def test_brevo_has_priority_and_payload(tmp_db, monkeypatch):
     db.add_email_recipient("dest@example.com")
     called = {}
 
-    async def fake_brevo(subject, html_body, plain_body, recipients):
+    async def fake_brevo(subject, html_body, plain_body, recipients, attachments=None):
         called["via"] = "brevo"
         called["recipients"] = recipients
 

@@ -27,9 +27,17 @@ MAX_CONCURRENT_SEC = 6
 # Google News банит за частые запросы (503 на все ленты): ходим к нему по двое
 # и с паузой-разбросом, чтобы 70+ лент не били одновременно.
 MAX_CONCURRENT_GOOGLE = 2
+# Одновременных разборов страниц/фидов в потоках: каждый разбор держит в памяти
+# исходный текст и дерево; без лимита пул потоков разбирал до 32 страниц разом.
+MAX_CONCURRENT_PARSES = 4
+# Больше этого объёма с источника не читаем: лента новостей или IR-страница
+# укладываются в сотни килобайт, а многомегабайтные ответы (полные архивы,
+# бесконечные ленты) только раздувают память парсера.
+MAX_RESPONSE_BYTES = 3 * 1024 * 1024
 _semaphore: asyncio.Semaphore | None = None
 _sec_semaphore: asyncio.Semaphore | None = None
 _google_semaphore: asyncio.Semaphore | None = None
+_parse_semaphore: asyncio.Semaphore | None = None
 
 
 def _sems() -> tuple[asyncio.Semaphore, asyncio.Semaphore, asyncio.Semaphore]:
@@ -40,6 +48,15 @@ def _sems() -> tuple[asyncio.Semaphore, asyncio.Semaphore, asyncio.Semaphore]:
         _sec_semaphore = asyncio.Semaphore(MAX_CONCURRENT_SEC)
         _google_semaphore = asyncio.Semaphore(MAX_CONCURRENT_GOOGLE)
     return _semaphore, _sec_semaphore, _google_semaphore
+
+
+async def parse_in_thread(func, *args):
+    """Выполняет синхронный разбор в потоке, не более MAX_CONCURRENT_PARSES одновременно."""
+    global _parse_semaphore
+    if _parse_semaphore is None:
+        _parse_semaphore = asyncio.Semaphore(MAX_CONCURRENT_PARSES)
+    async with _parse_semaphore:
+        return await asyncio.to_thread(func, *args)
 # Разные антибот-системы режут разные браузеры: LME пропускает Safari/Firefox, но не Chrome.
 IMPERSONATE_CHAIN = ("chrome", "safari", "firefox135")
 
@@ -61,14 +78,23 @@ def _fetch_impersonated(url: str) -> bytes:
     for browser in IMPERSONATE_CHAIN:
         try:
             response = curl_requests.get(url, impersonate=browser, timeout=30,
-                                         allow_redirects=True)
+                                         allow_redirects=True, stream=True)
         except Exception:
             continue
-        if response.status_code < 400:
-            if browser != IMPERSONATE_CHAIN[0]:
-                log.info("Источник %s открылся под %s", url, browser)
-            return response.content
-        last_status = response.status_code
+        try:
+            if response.status_code < 400:
+                if browser != IMPERSONATE_CHAIN[0]:
+                    log.info("Источник %s открылся под %s", url, browser)
+                chunks, size = [], 0
+                for chunk in response.iter_content():
+                    chunks.append(chunk)
+                    size += len(chunk)
+                    if size >= MAX_RESPONSE_BYTES:
+                        break
+                return b"".join(chunks)[:MAX_RESPONSE_BYTES]
+            last_status = response.status_code
+        finally:
+            response.close()
     raise httpx.HTTPStatusError(
         f"Client error '{last_status or 'timeout'}' for url '{url}' (все отпечатки: {', '.join(IMPERSONATE_CHAIN)})",
         request=httpx.Request("GET", url),
@@ -90,12 +116,26 @@ async def fetch(client: httpx.AsyncClient, source: dict) -> bytes:
         return await _fetch_inner(client, source)
 
 
+async def _read_limited(client: httpx.AsyncClient, source: dict) -> bytes:
+    """GET с потоковым чтением: тело обрезается по MAX_RESPONSE_BYTES, не попадая
+    в память целиком."""
+    async with client.stream("GET", source["url"], headers=request_headers(source),
+                             follow_redirects=True, timeout=25) as response:
+        response.raise_for_status()
+        chunks, size = [], 0
+        async for chunk in response.aiter_bytes():
+            chunks.append(chunk)
+            size += len(chunk)
+            if size >= MAX_RESPONSE_BYTES:
+                log.info("Источник %s больше %d КБ — читаю только начало",
+                         source.get("name"), MAX_RESPONSE_BYTES // 1024)
+                break
+        return b"".join(chunks)[:MAX_RESPONSE_BYTES]
+
+
 async def _fetch_inner(client: httpx.AsyncClient, source: dict) -> bytes:
     try:
-        response = await client.get(source["url"], headers=request_headers(source),
-                                    follow_redirects=True, timeout=25)
-        response.raise_for_status()
-        return response.content
+        return await _read_limited(client, source)
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code not in BLOCK_CODES or "sec.gov" in source["url"] \
                 or "news.google.com" in source["url"]:

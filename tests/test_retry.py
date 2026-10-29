@@ -61,17 +61,24 @@ async def test_fetch_concurrency_is_bounded():
     active, peak = 0, 0
 
     class FakeResponse:
-        content = b"ok"
         def raise_for_status(self): pass
+        async def aiter_bytes(self):
+            yield b"ok"
 
-    class FakeClient:
-        async def get(self, url, **kw):
+    class FakeStream:
+        async def __aenter__(self):
             nonlocal active, peak
             active += 1
             peak = max(peak, active)
             await asyncio.sleep(0.005)
-            active -= 1
             return FakeResponse()
+        async def __aexit__(self, *exc):
+            nonlocal active
+            active -= 1
+            return False
+
+    class FakeClient:
+        def stream(self, method, url, **kw): return FakeStream()
 
     client = FakeClient()
     sources = [{"id": i, "name": f"s{i}", "type": "IR", "url": f"https://x{i}.example.com/"}
@@ -79,3 +86,30 @@ async def test_fetch_concurrency_is_bounded():
     results = await asyncio.gather(*(fetcher.fetch(client, s) for s in sources))
     assert all(r == b"ok" for r in results)
     assert peak <= fetcher.MAX_CONCURRENT_FETCHES, f"пик одновременности {peak}"
+
+
+@pytest.mark.asyncio
+async def test_fetch_truncates_huge_response(monkeypatch):
+    """Ответ больше MAX_RESPONSE_BYTES читается только до лимита — память не раздувается."""
+    import asyncio
+    from app import fetcher
+    fetcher._semaphore = fetcher._sec_semaphore = None
+    monkeypatch.setattr(fetcher, "MAX_RESPONSE_BYTES", 1000)
+    served = {"chunks": 0}
+
+    class FakeResponse:
+        def raise_for_status(self): pass
+        async def aiter_bytes(self):
+            for _ in range(100):
+                served["chunks"] += 1
+                yield b"x" * 100
+        async def __aenter__(self): return self
+        async def __aexit__(self, *exc): return False
+
+    class FakeClient:
+        def stream(self, method, url, **kw): return FakeResponse()
+
+    body = await fetcher.fetch(FakeClient(), {"id": 1, "name": "big", "type": "IR",
+                                              "url": "https://big.example.com/"})
+    assert len(body) == 1000
+    assert served["chunks"] == 10  # остальные 90 чанков не запрашивались

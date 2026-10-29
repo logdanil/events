@@ -19,7 +19,7 @@ from urllib.parse import urlparse
 
 import httpx
 
-from app import db, health, html_monitor, matcher, rss_monitor
+from app import db, health, html_monitor, matcher, memory, rss_monitor
 from app.config import settings
 from app.formatters import classify_severity
 from app.llm import EVENT_TYPES, LLMUsage, classify_publications, get_provider
@@ -270,12 +270,20 @@ class Monitor:
                 continue
             c = classifications.get(i)
             llm_result, status = "no_response", "fetched"
+            llm_event_type = llm_summary = None
+            candidates = pub.get("asset_codes") or []
+            best_asset = candidates[0] if candidates else None
+            best_score = max((r.score for r in pub.get("match_results") or []), default=None)
             if c:
                 status = "llm_analyzed"
+                llm_event_type = (c.get("event_type") or "").strip() or None
+                llm_summary = (c.get("summary_ru") or c.get("summary") or "").strip()[:600] or None
                 if c.get("is_event") and stats:
                     stats.llm_events += 1
                 accepted, reason = classification_ok(c, min_confidence, allow_rumors)
                 target = _target_asset(c, pub["asset_codes"])
+                if target:
+                    best_asset = target
                 if accepted and not target:
                     accepted, reason = False, "модель не отнесла публикацию ни к одному кандидату"
                 if accepted:
@@ -293,7 +301,9 @@ class Monitor:
                         stats.rejected += 1
             db.remember_article(pub["url"], pub["url_hash"], pub.get("title_hash"),
                                 pub.get("published_at"), pub.get("source"), llm_result,
-                                status=status, title=pub.get("title"), text=pub.get("text"))
+                                status=status, title=pub.get("title"), text=pub.get("text"),
+                                best_asset=best_asset, best_score=best_score,
+                                llm_event_type=llm_event_type, llm_summary=llm_summary)
         return events
 
     def save_events(self, events: list[dict], stats: ScanStats | None = None) -> list[dict]:
@@ -374,4 +384,6 @@ class Monitor:
         db.finish_scan_run(run_id, "ok", stats.assets_scanned, stats.saved, errors=stats.errors)
         db.prune_processed_articles(days=max(30, settings.lookback_days * 10))
         log.info("%s", stats.summary_ru().replace("\n", " | "))
+        del publications, filtered, events
+        memory.release("скана")
         return new_events

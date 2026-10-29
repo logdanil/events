@@ -8,7 +8,7 @@ import logging
 from urllib.parse import urljoin
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, SoupStrainer
 
 from app import db, fetcher, health
 from app.config import settings
@@ -17,6 +17,9 @@ log = logging.getLogger(__name__)
 
 MAX_LINKS_PER_PAGE = 30
 MIN_TITLE_LEN = 25
+# Нужны только ссылки: полное DOM-дерево страницы IR-раздела занимает в десятки раз
+# больше памяти, чем сами якоря, а при 170 страницах за скан это был главный пик RSS.
+_ANCHORS_ONLY = SoupStrainer("a", href=True)
 
 
 def parse_json_articles(text: str, source: dict) -> list[dict]:
@@ -66,7 +69,7 @@ def parse_links(html: str, source: dict) -> list[dict]:
         # RSS/Atom под HTML-адресом (например, moex.com/export/news.aspx) — отдаём фид-парсеру.
         from app.rss_monitor import parse_feed
         return parse_feed(html, source)
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(html, "html.parser", parse_only=_ANCHORS_ONLY)
     publications = []
     seen = set()
     for anchor in soup.find_all("a", href=True):
@@ -91,14 +94,16 @@ def parse_links(html: str, source: dict) -> list[dict]:
         })
         if len(publications) >= MAX_LINKS_PER_PAGE:
             break
+    soup.decompose()
     return publications
 
 
 async def fetch_source(client: httpx.AsyncClient, source: dict) -> list[dict]:
     try:
         content = await fetcher.fetch(client, source)
-        publications = await asyncio.to_thread(
+        publications = await fetcher.parse_in_thread(
             parse_links, content.decode("utf-8", errors="replace"), source)
+        del content
         db.mark_source_checked(source["id"])
         alert = health.check_source(source, None)
         if alert:

@@ -436,6 +436,8 @@ def format_health_report(interval_minutes: int) -> str:
     lines.append(f"Источники: {total - failing}/{total} доступны"
                  + (f", {failing} стабильно недоступны" if failing else ""))
     lines.append(f"Интервал проверок: {interval_minutes} мин")
+    from app.memory import rss_mb
+    lines.append(f"Память процесса: {rss_mb():.0f} МБ")
     lines.append("")
     if not incidents:
         lines.append("Открытых проблем нет ✅")

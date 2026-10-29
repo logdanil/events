@@ -5,10 +5,11 @@ import html
 import json
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, time as dt_time
 from pathlib import Path
 
-from telegram import Update
+from telegram import InputFile, Update
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
 from app import db, emailer, formatters, health, llm, matcher
@@ -29,6 +30,10 @@ from app.monitor import MIN_CONFIDENCE, Monitor, ScanStats, classification_ok, _
 from app.retry import with_retries
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+# httpx пишет каждый запрос (getUpdates раз в 10 с) вместе с токеном бота в URL —
+# шум в логах и утечка секрета; оставляем только предупреждения.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 log = logging.getLogger(__name__)
 
 monitor = Monitor()
@@ -411,21 +416,43 @@ async def build_daily_summary() -> str:
     return formatters.format_daily_summary(data, narrative)
 
 
+async def build_daily_workbook() -> tuple[bytes, str, str] | None:
+    """Excel-детализация дня (файл, имя, подпись); при сбое — None, сводка уходит без файла."""
+    from app import daily_report
+    try:
+        content, counts = await asyncio.to_thread(daily_report.build_workbook, 24)
+        return content, daily_report.report_filename(), daily_report.caption(counts)
+    except Exception:
+        log.exception("Не удалось построить Excel-отчёт дня")
+        return None
+
+
+async def send_workbook_tg(bot, chat_id: int, workbook: tuple[bytes, str, str]) -> None:
+    content, filename, text = workbook
+    await bot.send_document(chat_id=chat_id, document=InputFile(content, filename=filename),
+                            caption=text, disable_notification=True)
+
+
 async def send_daily_summary(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Ежедневная сводка в 19:00 МСК всем получателям."""
+    """Ежедневная сводка в 19:00 МСК всем получателям + Excel-детализация дня."""
     from app.bot import notification_recipients
     if db.get_setting(DAILY_SUMMARY_KEY, "1") != "1":
         return
     summary = await build_daily_summary()
+    workbook = await build_daily_workbook()
     for chat_id in notification_recipients():
         try:
             await send_html_message(context.application.bot, chat_id, summary)
+            if workbook:
+                await send_workbook_tg(context.application.bot, chat_id, workbook)
         except Exception:
             log.warning("Не удалось отправить дневное саммари получателю %s", chat_id)
     now = datetime.now(MSK)
     if emailer.is_configured() and db.list_email_recipients():
+        attachments = [(workbook[1], workbook[0], emailer.XLSX_MIME)] if workbook else None
         ok = await emailer.send_email(
-            f"🗞 Итоги дня мониторинга — {now.day:02d}.{now.month:02d}.{now.year}", summary)
+            f"🗞 Итоги дня мониторинга — {now.day:02d}.{now.month:02d}.{now.year}",
+            summary + (f"\n\n{workbook[2]}" if workbook else ""), attachments=attachments)
         a = health.check_delivery("email", "daily_summary",
                                   None if ok else RuntimeError("отправка не удалась, см. логи"))
         # check_delivery при успехе возвращает запись «восстановлено» (без severity) —
@@ -537,6 +564,9 @@ async def summary_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     except Exception:
         pass
     await reply_html(update.effective_message, text)
+    workbook = await build_daily_workbook()
+    if workbook:
+        await send_workbook_tg(context.bot, update.effective_chat.id, workbook)
 
 
 async def test_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -751,6 +781,10 @@ async def debug_scan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 async def post_init(app: Application) -> None:
     from app import assets_sync
+    # Пул потоков по умолчанию — до 32 потоков, у каждого своя malloc-арена;
+    # разбор страниц и curl_cffi не требуют больше нескольких.
+    asyncio.get_running_loop().set_default_executor(
+        ThreadPoolExecutor(max_workers=8, thread_name_prefix="worker"))
     db.init_db()
     root = Path(__file__).resolve().parent.parent
     # JSON-файлы — только начальная загрузка: единственный источник истины — SQLite.

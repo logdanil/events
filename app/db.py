@@ -220,6 +220,9 @@ _PROCESSED_COLUMNS = {
     "best_asset": "TEXT",
     "best_score": "REAL",
     "pending_llm": "INTEGER NOT NULL DEFAULT 0",
+    # Результат Gemini сохраняется и для отклонённых публикаций — для дневного Excel-отчёта.
+    "llm_event_type": "TEXT",
+    "llm_summary": "TEXT",
 }
 
 
@@ -607,13 +610,15 @@ def remember_article(url: str, url_hash: str, title_hash: str | None,
                      published_at: str | None, source: str | None, llm_result: str | None,
                      status: str = "fetched", title: str | None = None, text: str | None = None,
                      best_asset: str | None = None, best_score: float | None = None,
-                     pending_llm: bool = False) -> None:
+                     pending_llm: bool = False, llm_event_type: str | None = None,
+                     llm_summary: str | None = None) -> None:
     from app import versions
     with connect() as conn:
         conn.execute("""
         INSERT INTO processed_articles(url_hash,url,title_hash,published_at,source,llm_result,
-          status,title,text,matcher_version,filter_version,llm_prompt_version,best_asset,best_score,pending_llm)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          status,title,text,matcher_version,filter_version,llm_prompt_version,best_asset,best_score,
+          pending_llm,llm_event_type,llm_summary)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(url_hash) DO UPDATE SET
           llm_result=excluded.llm_result, status=excluded.status,
           title=COALESCE(excluded.title, title), text=COALESCE(excluded.text, text),
@@ -622,10 +627,13 @@ def remember_article(url: str, url_hash: str, title_hash: str | None,
           best_asset=COALESCE(excluded.best_asset, best_asset),
           best_score=COALESCE(excluded.best_score, best_score),
           pending_llm=excluded.pending_llm,
+          llm_event_type=COALESCE(excluded.llm_event_type, llm_event_type),
+          llm_summary=COALESCE(excluded.llm_summary, llm_summary),
           processed_at=CURRENT_TIMESTAMP
         """, (url_hash, url, title_hash, published_at, source, llm_result, status,
               title, text, versions.MATCHER_VERSION, versions.FILTER_VERSION,
-              versions.LLM_PROMPT_VERSION, best_asset, best_score, int(pending_llm)))
+              versions.LLM_PROMPT_VERSION, best_asset, best_score, int(pending_llm),
+              llm_event_type, llm_summary))
 
 
 def get_article(url_hash: str) -> dict[str, Any] | None:
@@ -1005,6 +1013,22 @@ def daily_summary_data(hours: int = 24) -> dict[str, Any]:
         "scans": scans,
         "cost_today": cost_stats()["today"],
     }
+
+
+def daily_report_rows(hours: int = 24) -> list[dict[str, Any]]:
+    """Публикации за период, у которых есть кандидат-актив: всё, что прошло
+    keyword-фильтр и было сопоставлено хотя бы предположительно — от слабых
+    кандидатов до созданных событий. Основа дневного Excel-отчёта."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT p.url, p.title, p.source, COALESCE(p.status,'fetched') status, p.llm_result, "
+            "p.best_asset, p.best_score, p.published_at, p.processed_at, p.pending_llm, "
+            "p.llm_event_type, p.llm_summary, a.name asset_name, a.instrument_type "
+            "FROM processed_articles p LEFT JOIN assets a ON a.code = p.best_asset "
+            "WHERE p.processed_at >= datetime('now', ?) AND p.best_asset IS NOT NULL "
+            "ORDER BY p.best_asset, p.processed_at DESC",
+            (f"-{int(hours)} hours",)).fetchall()
+        return [dict(r) for r in rows]
 
 
 def articles_by_source(hours: int = 24) -> list[tuple[str, int]]:

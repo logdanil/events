@@ -8,7 +8,7 @@
   без блокировки портов 465/587.
 
 Функция необязательная: без настроек бот просто не шлёт письма.
-На почту уходят события (полный отчёт) и ежедневное саммари —
+На почту уходят события (полный отчёт) и ежедневное саммари с Excel-детализацией дня во вложении —
 почасовые отчёты о проверках намеренно не дублируются, чтобы не засорять inbox.
 """
 from __future__ import annotations
@@ -19,8 +19,10 @@ import logging
 import smtplib
 import ssl
 import time
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email import encoders
 
 import httpx
 
@@ -60,15 +62,36 @@ def telegram_html_to_email(html_text: str) -> str:
             "Corporate Events Monitor · автоматическое уведомление</p>")
 
 
+# Вложение: (имя файла, содержимое, MIME-тип).
+Attachment = tuple[str, bytes, str]
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
 def _build_mime(subject: str, html_body: str, plain_body: str,
-                recipients: list[str]) -> MIMEMultipart:
-    msg = MIMEMultipart("alternative")
+                recipients: list[str], attachments: list[Attachment] | None = None) -> MIMEMultipart:
+    body = MIMEMultipart("alternative")
+    body.attach(MIMEText(plain_body, "plain", "utf-8"))
+    body.attach(MIMEText(html_body, "html", "utf-8"))
+    if attachments:
+        msg = MIMEMultipart("mixed")
+        msg.attach(body)
+        for filename, content, mime in attachments:
+            main, _, sub = mime.partition("/")
+            part = MIMEBase(main or "application", sub or "octet-stream")
+            part.set_payload(content)
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", "attachment", filename=filename)
+            msg.attach(part)
+    else:
+        msg = body
     msg["Subject"] = subject
     msg["From"] = settings.email_from or settings.smtp_user
     msg["To"] = ", ".join(recipients)
-    msg.attach(MIMEText(plain_body, "plain", "utf-8"))
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
     return msg
+
+
+def _b64(content: bytes) -> str:
+    return base64.b64encode(content).decode("ascii")
 
 
 # Кэш access-токена Gmail: refresh-токен вечный, access живёт ~1 час.
@@ -93,10 +116,10 @@ async def _gmail_access_token(client: httpx.AsyncClient) -> str:
 
 
 async def _send_via_gmail(subject: str, html_body: str, plain_body: str,
-                          recipients: list[str]) -> None:
+                          recipients: list[str], attachments: list[Attachment] | None = None) -> None:
     """Отправка через Gmail API от имени самого ящика EMAIL_FROM:
     письма идут через серверы Gmail, SPF/DKIM сходятся — лучшая доставляемость."""
-    msg = _build_mime(subject, html_body, plain_body, recipients)
+    msg = _build_mime(subject, html_body, plain_body, recipients, attachments)
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii")
     async with httpx.AsyncClient(timeout=30) as client:
         token = await _gmail_access_token(client)
@@ -106,8 +129,9 @@ async def _send_via_gmail(subject: str, html_body: str, plain_body: str,
             raise RuntimeError(f"Gmail API {response.status_code}: {response.text[:300]}")
 
 
-def _send_sync(subject: str, html_body: str, plain_body: str, recipients: list[str]) -> None:
-    msg = _build_mime(subject, html_body, plain_body, recipients)
+def _send_sync(subject: str, html_body: str, plain_body: str, recipients: list[str],
+               attachments: list[Attachment] | None = None) -> None:
+    msg = _build_mime(subject, html_body, plain_body, recipients, attachments)
     context = ssl.create_default_context()
     if settings.smtp_port == 465:
         with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, context=context, timeout=30) as server:
@@ -121,8 +145,8 @@ def _send_sync(subject: str, html_body: str, plain_body: str, recipients: list[s
 
 
 def _sendgrid_payload(subject: str, html_body: str, plain_body: str,
-                      recipients: list[str]) -> dict:
-    return {
+                      recipients: list[str], attachments: list[Attachment] | None = None) -> dict:
+    payload = {
         "personalizations": [{"to": [{"email": r} for r in recipients]}],
         "from": {"email": settings.email_from, "name": "Corporate Events Monitor"},
         "subject": subject,
@@ -131,10 +155,14 @@ def _sendgrid_payload(subject: str, html_body: str, plain_body: str,
             {"type": "text/html", "value": html_body},
         ],
     }
+    if attachments:
+        payload["attachments"] = [{"content": _b64(c), "filename": n, "type": m,
+                                   "disposition": "attachment"} for n, c, m in attachments]
+    return payload
 
 
 async def _send_via_smtp2go(subject: str, html_body: str, plain_body: str,
-                            recipients: list[str]) -> None:
+                            recipients: list[str], attachments: list[Attachment] | None = None) -> None:
     payload = {
         "sender": settings.email_from,
         "to": recipients,
@@ -142,6 +170,9 @@ async def _send_via_smtp2go(subject: str, html_body: str, plain_body: str,
         "html_body": html_body,
         "text_body": plain_body,
     }
+    if attachments:
+        payload["attachments"] = [{"filename": n, "fileblob": _b64(c), "mimetype": m}
+                                  for n, c, m in attachments]
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(SMTP2GO_URL, json=payload,
                                      headers={"X-Smtp2go-Api-Key": settings.smtp2go_api_key,
@@ -153,7 +184,7 @@ async def _send_via_smtp2go(subject: str, html_body: str, plain_body: str,
 
 
 async def _send_via_brevo(subject: str, html_body: str, plain_body: str,
-                          recipients: list[str]) -> None:
+                          recipients: list[str], attachments: list[Attachment] | None = None) -> None:
     payload = {
         "sender": {"email": settings.email_from, "name": "Corporate Events Monitor"},
         "to": [{"email": r} for r in recipients],
@@ -161,6 +192,8 @@ async def _send_via_brevo(subject: str, html_body: str, plain_body: str,
         "htmlContent": html_body,
         "textContent": plain_body,
     }
+    if attachments:
+        payload["attachment"] = [{"name": n, "content": _b64(c)} for n, c, _ in attachments]
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(BREVO_URL, json=payload,
                                      headers={"api-key": settings.brevo_api_key,
@@ -170,20 +203,21 @@ async def _send_via_brevo(subject: str, html_body: str, plain_body: str,
 
 
 async def _send_via_sendgrid(subject: str, html_body: str, plain_body: str,
-                             recipients: list[str]) -> None:
+                             recipients: list[str], attachments: list[Attachment] | None = None) -> None:
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(
             SENDGRID_URL,
-            json=_sendgrid_payload(subject, html_body, plain_body, recipients),
+            json=_sendgrid_payload(subject, html_body, plain_body, recipients, attachments),
             headers={"Authorization": f"Bearer {settings.sendgrid_api_key}"})
         if response.status_code >= 400:
             raise RuntimeError(f"SendGrid {response.status_code}: {response.text[:300]}")
 
 
 async def send_email(subject: str, telegram_html: str,
-                     recipients: list[str] | None = None) -> bool:
-    """Отправляет письмо (HTML + plain-text альтернатива). Best-effort:
-    сбой почты логируется и никогда не мешает Telegram-рассылке."""
+                     recipients: list[str] | None = None,
+                     attachments: list[Attachment] | None = None) -> bool:
+    """Отправляет письмо (HTML + plain-text альтернатива, опционально вложения).
+    Best-effort: сбой почты логируется и никогда не мешает Telegram-рассылке."""
     if not is_configured():
         return False
     if recipients is None:
@@ -193,17 +227,19 @@ async def send_email(subject: str, telegram_html: str,
     html_body = telegram_html_to_email(telegram_html)
     plain_body = formatters.strip_html(telegram_html)
     try:
+        args = (subject, html_body, plain_body, recipients, attachments)
         if _gmail_configured():
-            await _send_via_gmail(subject, html_body, plain_body, recipients)
+            await _send_via_gmail(*args)
         elif settings.smtp2go_api_key:
-            await _send_via_smtp2go(subject, html_body, plain_body, recipients)
+            await _send_via_smtp2go(*args)
         elif settings.brevo_api_key:
-            await _send_via_brevo(subject, html_body, plain_body, recipients)
+            await _send_via_brevo(*args)
         elif settings.sendgrid_api_key:
-            await _send_via_sendgrid(subject, html_body, plain_body, recipients)
+            await _send_via_sendgrid(*args)
         else:
-            await asyncio.to_thread(_send_sync, subject, html_body, plain_body, recipients)
-        log.info("Письмо «%s» отправлено %d получателям", subject[:60], len(recipients))
+            await asyncio.to_thread(_send_sync, *args)
+        log.info("Письмо «%s» отправлено %d получателям%s", subject[:60], len(recipients),
+                 f", вложений: {len(attachments)}" if attachments else "")
         return True
     except Exception:
         log.exception("Не удалось отправить письмо «%s»", subject[:60])

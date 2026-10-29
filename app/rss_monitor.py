@@ -84,7 +84,8 @@ def parse_feed(content: bytes | str, source: dict) -> list[dict]:
 async def fetch_source(client: httpx.AsyncClient, source: dict) -> list[dict]:
     try:
         content = await fetcher.fetch(client, source)
-        publications = await asyncio.to_thread(parse_feed, content, source)
+        publications = await fetcher.parse_in_thread(parse_feed, content, source)
+        del content
         db.mark_source_checked(source["id"])
         alert = health.check_source(source, None)
         if alert:
