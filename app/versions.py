@@ -5,6 +5,6 @@
 становятся доступными для повторной обработки (см. db.article_seen).
 Повышайте версию при изменении соответствующей логики.
 """
-MATCHER_VERSION = 7   # v7: товарные контекст-слова тикеров (futures/margin/LME/CME/LBMA)
-FILTER_VERSION = 4  # v4: товарные события — гарантийное обеспечение, спецификации, циркуляры
+MATCHER_VERSION = 8   # v8: товарные активы — имя товара как эмитент (copper/gold/brent…), алиасы профилей
+FILTER_VERSION = 5  # v5: товарные события — изменения ГО (margins/margin change), ценовые лимиты, часы торгов
 LLM_PROMPT_VERSION = 6  # v6: товарные контракты — margin_change и правила LME/CME/ICE/LBMA

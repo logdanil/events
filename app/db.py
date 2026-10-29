@@ -223,6 +223,10 @@ _PROCESSED_COLUMNS = {
     # Результат Gemini сохраняется и для отклонённых публикаций — для дневного Excel-отчёта.
     "llm_event_type": "TEXT",
     "llm_summary": "TEXT",
+    # Лента-источник (для листа «Источники» отчёта: имя у Google News-лент общее).
+    "source_id": "INTEGER",
+    # Перевод заголовка на русский (Gemini, один раз при построении отчёта).
+    "title_ru": "TEXT",
 }
 
 
@@ -552,6 +556,14 @@ def list_source_defs(enabled_only: bool = True, due_only: bool = False) -> list[
         return result
 
 
+def source_subscribers(source_id: int) -> list[str]:
+    """Коды активов, подписанных на источник (по возрастанию кода)."""
+    with connect() as conn:
+        return [r["asset_code"] for r in conn.execute(
+            "SELECT asset_code FROM asset_sources WHERE source_id=? ORDER BY asset_code",
+            (source_id,)).fetchall()]
+
+
 def mark_source_checked(source_id: int, error: str | None = None) -> None:
     with connect() as conn:
         conn.execute("UPDATE source_defs SET last_checked_at=CURRENT_TIMESTAMP, last_error=? WHERE id=?",
@@ -611,14 +623,14 @@ def remember_article(url: str, url_hash: str, title_hash: str | None,
                      status: str = "fetched", title: str | None = None, text: str | None = None,
                      best_asset: str | None = None, best_score: float | None = None,
                      pending_llm: bool = False, llm_event_type: str | None = None,
-                     llm_summary: str | None = None) -> None:
+                     llm_summary: str | None = None, source_id: int | None = None) -> None:
     from app import versions
     with connect() as conn:
         conn.execute("""
         INSERT INTO processed_articles(url_hash,url,title_hash,published_at,source,llm_result,
           status,title,text,matcher_version,filter_version,llm_prompt_version,best_asset,best_score,
-          pending_llm,llm_event_type,llm_summary)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          pending_llm,llm_event_type,llm_summary,source_id)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(url_hash) DO UPDATE SET
           llm_result=excluded.llm_result, status=excluded.status,
           title=COALESCE(excluded.title, title), text=COALESCE(excluded.text, text),
@@ -629,11 +641,12 @@ def remember_article(url: str, url_hash: str, title_hash: str | None,
           pending_llm=excluded.pending_llm,
           llm_event_type=COALESCE(excluded.llm_event_type, llm_event_type),
           llm_summary=COALESCE(excluded.llm_summary, llm_summary),
+          source_id=COALESCE(excluded.source_id, source_id),
           processed_at=CURRENT_TIMESTAMP
         """, (url_hash, url, title_hash, published_at, source, llm_result, status,
               title, text, versions.MATCHER_VERSION, versions.FILTER_VERSION,
               versions.LLM_PROMPT_VERSION, best_asset, best_score, int(pending_llm),
-              llm_event_type, llm_summary))
+              llm_event_type, llm_summary, source_id))
 
 
 def get_article(url_hash: str) -> dict[str, Any] | None:
@@ -1018,16 +1031,64 @@ def daily_summary_data(hours: int = 24) -> dict[str, Any]:
 def daily_report_rows(hours: int = 24) -> list[dict[str, Any]]:
     """Публикации за период, у которых есть кандидат-актив: всё, что прошло
     keyword-фильтр и было сопоставлено хотя бы предположительно — от слабых
-    кандидатов до созданных событий. Основа дневного Excel-отчёта."""
+    кандидатов до созданных событий. Основа дневного Excel-отчёта.
+    Сортировка — по score сопоставления (важнее — выше)."""
     with connect() as conn:
         rows = conn.execute(
-            "SELECT p.url, p.title, p.source, COALESCE(p.status,'fetched') status, p.llm_result, "
+            "SELECT p.url_hash, p.url, p.title, p.title_ru, p.source, p.source_id, "
+            "COALESCE(p.status,'fetched') status, p.llm_result, "
             "p.best_asset, p.best_score, p.published_at, p.processed_at, p.pending_llm, "
-            "p.llm_event_type, p.llm_summary, a.name asset_name, a.instrument_type "
+            "p.llm_event_type, p.llm_summary, a.name asset_name, a.instrument_type, "
+            "d.url source_url, d.type source_type "
             "FROM processed_articles p LEFT JOIN assets a ON a.code = p.best_asset "
+            "LEFT JOIN source_defs d ON d.id = p.source_id "
             "WHERE p.processed_at >= datetime('now', ?) AND p.best_asset IS NOT NULL "
-            "ORDER BY p.best_asset, p.processed_at DESC",
+            "ORDER BY p.best_score DESC, p.processed_at DESC",
             (f"-{int(hours)} hours",)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def untranslated_titles(hours: int = 24) -> list[tuple[str, str]]:
+    """(url_hash, title) публикаций отчётного периода без русского заголовка."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT url_hash, title FROM processed_articles "
+            "WHERE processed_at >= datetime('now', ?) AND best_asset IS NOT NULL "
+            "AND title IS NOT NULL AND TRIM(title) != '' "
+            "AND (title_ru IS NULL OR title_ru = '') ORDER BY best_score DESC",
+            (f"-{int(hours)} hours",)).fetchall()
+        return [(r["url_hash"], r["title"]) for r in rows]
+
+
+def set_title_ru(translations: dict[str, str]) -> int:
+    """Сохраняет переводы заголовков {url_hash: title_ru}; возвращает число записей."""
+    if not translations:
+        return 0
+    with connect() as conn:
+        cur = conn.executemany(
+            "UPDATE processed_articles SET title_ru=? WHERE url_hash=?",
+            [(ru.strip()[:500], h) for h, ru in translations.items() if ru and ru.strip()])
+        return cur.rowcount
+
+
+def source_report_rows(hours: int = 24) -> list[dict[str, Any]]:
+    """Состояние каждой ленты за период: подписчики, когда проверена, ошибки,
+    сколько публикаций с неё обработано (включая отсеянные фильтром ключевых слов)
+    и сколько из них получили кандидата-актива. Лист «Источники» дневного отчёта."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT d.id, d.name, d.type, d.url, d.enabled, d.refresh_interval, "
+            "d.last_checked_at, d.last_error, COALESCE(d.fail_streak, 0) fail_streak, "
+            "(SELECT GROUP_CONCAT(asset_code, ', ') FROM (SELECT asset_code FROM asset_sources "
+            " WHERE source_id = d.id ORDER BY asset_code)) subscribers, "
+            "(SELECT COUNT(*) FROM processed_articles p WHERE p.source_id = d.id "
+            " AND p.processed_at >= datetime('now', ?)) fetched, "
+            "(SELECT COUNT(*) FROM processed_articles p WHERE p.source_id = d.id "
+            " AND p.processed_at >= datetime('now', ?) AND p.best_asset IS NOT NULL) matched, "
+            "(SELECT COUNT(*) FROM processed_articles p WHERE p.source_id = d.id "
+            " AND p.processed_at >= datetime('now', ?) AND p.status = 'event_created') events "
+            "FROM source_defs d ORDER BY fetched DESC, d.enabled DESC, d.priority, d.id",
+            (f"-{int(hours)} hours",) * 3).fetchall()
         return [dict(r) for r in rows]
 
 

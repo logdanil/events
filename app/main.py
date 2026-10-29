@@ -417,8 +417,20 @@ async def build_daily_summary() -> str:
 
 
 async def build_daily_workbook() -> tuple[bytes, str, str] | None:
-    """Excel-детализация дня (файл, имя, подпись); при сбое — None, сводка уходит без файла."""
+    """Excel-детализация дня (файл, имя, подпись); при сбое — None, сводка уходит без файла.
+    Перед сборкой Gemini переводит заголовки публикаций периода (один раз, с кэшем в БД);
+    сбой перевода файл не отменяет — колонка перевода остаётся пустой."""
     from app import daily_report
+    try:
+        counts = await daily_report.translate_titles(monitor.llm, 24)
+        if counts["calls"]:
+            db.record_llm_usage(monitor.llm.name, monitor.llm.model, counts["calls"],
+                                counts["input_tokens"], counts["output_tokens"],
+                                counts["cost_usd"], 0)
+            log.info("Перевод заголовков для отчёта: %d из %d, вызовов %d",
+                     counts["translated"], counts["requested"], counts["calls"])
+    except Exception:
+        log.exception("Перевод заголовков для Excel-отчёта не удался")
     try:
         content, counts = await asyncio.to_thread(daily_report.build_workbook, 24)
         return content, daily_report.report_filename(), daily_report.caption(counts)

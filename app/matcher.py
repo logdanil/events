@@ -46,6 +46,13 @@ CORPORATE_KEYWORDS = [
     "initial margin", "margin requirement", "margin rate", "performance bond",
     "position limit", "circular", "amendment", "delivery month", "expiry",
     "settlement method", "final settlement", "гарантийн", "маржинальн",
+    "futures margin", "margin change", "margin increase", "margin decrease", "margin cut",
+    "margin hike", "raises margin", "lowers margin", "cuts margin", "hikes margin",
+    "price limit", "price band", "daily limit", "trading hours", "last trading day",
+    "delivery point", "delivery rules", "contract size", "tick size", "contract launch",
+    "new contract", "cease trading", "price auction", "benchmark change", "rulebook",
+    "exchange notice", "notice to members", "лимит позиц", "ценовой лимит",
+    "часы торгов", "последний день торгов", "новый контракт",
 ]
 
 # Контекст, легализующий короткий/неоднозначный тикер (SPY, EM, GOLD, DAX…).
@@ -468,12 +475,14 @@ def filter_publications(publications: list[dict], profiles: list[AssetProfile],
         if is_regulatory and str(p.get("form_type") or "").strip().upper() in ROUTINE_SEC_FORMS:
             db.remember_article(p.get("url", ""), uh, th, p.get("published_at"),
                                 p.get("source"), "skipped:routine_sec_form",
-                                status="keyword_filtered", title=p.get("title"))
+                                status="keyword_filtered", title=p.get("title"),
+                                source_id=p.get("source_id"))
             continue
         if not is_regulatory and not has_corporate_keywords(p):
             db.remember_article(p.get("url", ""), uh, th, p.get("published_at"),
                                 p.get("source"), "skipped:no_keywords",
-                                status="keyword_filtered", title=p.get("title"))
+                                status="keyword_filtered", title=p.get("title"),
+                                source_id=p.get("source_id"))
             continue
         if stats is not None:
             stats.after_keywords += 1
@@ -497,7 +506,8 @@ def filter_publications(publications: list[dict], profiles: list[AssetProfile],
                 stats.irrelevant_global += 1
             db.remember_article(p.get("url", ""), uh, th, p.get("published_at"),
                                 p.get("source"), "skipped:irrelevant_global",
-                                status="irrelevant_global", title=p.get("title"), text=p.get("text"))
+                                status="irrelevant_global", title=p.get("title"), text=p.get("text"),
+                                source_id=p.get("source_id"))
             continue
         # Low и unmatched со слабым кандидатом: локальная очередь диагностики, в LLM не идут.
         reason = f"best {best.score:.2f} ({best.asset_code})" if best else "no_candidates"
@@ -509,7 +519,8 @@ def filter_publications(publications: list[dict], profiles: list[AssetProfile],
                             p.get("source"), f"skipped:no_asset_match ({reason})",
                             status="unmatched", title=p.get("title"), text=p.get("text"),
                             best_asset=best.asset_code if best else None,
-                            best_score=best.score if best else None)
+                            best_score=best.score if best else None,
+                            source_id=p.get("source_id"))
         db.save_unmatched(uh, best.asset_code if best else None,
                           best.score if best else None,
                           json.dumps([r.as_dict() for r in results[:5]], ensure_ascii=False),

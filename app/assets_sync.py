@@ -70,6 +70,49 @@ CRYPTO_PROFILES = {
 }
 _CRYPTO_TERMS = '("hard fork" OR upgrade OR halving OR outage OR delisting OR "network halt" OR burn)'
 
+# Товарные активы: «эмитент» контракта — сам товар. Имя товара (copper, gold…) —
+# единственное, по чему публикация биржи/СМИ сопоставляется с активом, и оно же
+# совпадает с кодом контракта: как алиас оно терялось (UNIQUE(asset_code, identifier)
+# NOCASE против записи kind='code'), поэтому задаётся как issuer_name — matcher
+# считает совпадение по эмитенту сильным сигналом независимо от таблицы алиасов.
+COMMODITY_PROFILES = {
+    "ALUM": {"issuer": "Aluminium", "aliases": ["Aluminum", "LME Aluminium", "Алюминий"],
+             "query": '(LME OR "London Metal Exchange") aluminium'},
+    "COPPER": {"issuer": "Copper", "aliases": ["LME Copper", "Медь"],
+               "query": '(LME OR "London Metal Exchange" OR COMEX) copper'},
+    "ZINC": {"issuer": "Zinc", "aliases": ["LME Zinc", "Цинк"],
+             "query": '(LME OR "London Metal Exchange") zinc'},
+    "NICKEL": {"issuer": "Nickel", "aliases": ["LME Nickel", "Никель"],
+               "query": '(LME OR "London Metal Exchange") nickel'},
+    "BR, BRM": {"issuer": "Brent", "aliases": ["Brent Crude", "ICE Brent", "Брент"],
+                "query": '"Brent" (ICE OR futures)'},
+    "WTI": {"issuer": "WTI", "aliases": ["Crude Oil", "Light Sweet Crude", "NYMEX crude"],
+            "query": '(WTI OR "crude oil") (CME OR NYMEX OR futures)'},
+    "NG, NGM": {"issuer": "Henry Hub", "aliases": ["Natural Gas", "NYMEX natural gas"],
+                "query": '"Henry Hub" OR "natural gas futures"'},
+    "SUGR": {"issuer": "Sugar", "aliases": ["Sugar No. 11", "Sugar No.11", "raw sugar"],
+             "query": '"Sugar No. 11" OR "raw sugar futures"'},
+    "GOLD": {"issuer": "Gold", "aliases": ["Gold price", "LBMA gold", "COMEX gold", "Золото"],
+             "query": '(LBMA OR COMEX OR CME) gold'},
+    "SILV": {"issuer": "Silver", "aliases": ["Silver price", "LBMA silver", "COMEX silver", "Серебро"],
+             "query": '(LBMA OR COMEX OR CME) silver'},
+    "PLT": {"issuer": "Platinum", "aliases": ["LBMA platinum", "NYMEX platinum", "Платина"],
+            "query": '(LBMA OR NYMEX OR CME) platinum'},
+    "PLD": {"issuer": "Palladium", "aliases": ["LBMA palladium", "NYMEX palladium", "Палладий"],
+            "query": '(LBMA OR NYMEX OR CME) palladium'},
+    "COCOA": {"issuer": "Cocoa", "aliases": ["Cocoa Futures", "Какао"],
+              "query": 'cocoa futures (ICE OR exchange)'},
+    "COFFEE": {"issuer": "Coffee", "aliases": ["Coffee C", "Arabica", "Кофе"],
+               "query": '"Coffee C" OR "arabica futures"'},
+    "TTF": {"issuer": "Dutch TTF", "aliases": ["TTF gas", "Title Transfer Facility"],
+            "query": '"TTF" gas (ICE OR Endex OR futures)'},
+    "ORANGE": {"issuer": "Orange Juice", "aliases": ["FCOJ", "FCOJ-A", "frozen concentrated orange juice"],
+               "query": '("orange juice" OR FCOJ) futures'},
+}
+_COMMODITY_TERMS = ('(margin OR margins OR "position limit" OR "price limit" OR specification '
+                    'OR amendment OR circular OR notice OR delivery OR settlement OR "trading hours" '
+                    'OR launch OR delisting OR suspension)')
+
 
 def infer_instrument_type(name: str) -> str:
     lower = name.lower()
@@ -114,6 +157,14 @@ def sync_from_md(path: str | Path) -> dict:
             if not fresh.get("underlying_ticker"):
                 db.set_asset_field(code, "underlying_ticker", code)
             for alias in [prof["issuer"], *prof["aliases"]]:
+                if db.add_alias(code, alias):
+                    report["aliases_added"].append(f"{code}:{alias}")
+        elif code in COMMODITY_PROFILES:
+            prof = COMMODITY_PROFILES[code]
+            fresh = db.get_asset(code) or {}
+            if not fresh.get("issuer_name"):
+                db.set_asset_field(code, "issuer_name", prof["issuer"])
+            for alias in prof["aliases"]:
                 if db.add_alias(code, alias):
                     report["aliases_added"].append(f"{code}:{alias}")
         # Точные идентификаторы: заполняем только пустые, ничего не перезаписываем.
@@ -187,6 +238,8 @@ def _news_query(asset: dict) -> str:
     name = re.sub(r"^(Американские депозитарные расписки на акции|Акции)\s+", "", name, flags=re.I)
     if asset.get("instrument_type") == "CRYPTO" and asset["code"] in CRYPTO_PROFILES:
         return quote_plus(f"{CRYPTO_PROFILES[asset['code']]['query']} {_CRYPTO_TERMS}")
+    if asset["code"] in COMMODITY_PROFILES:
+        return quote_plus(f"{COMMODITY_PROFILES[asset['code']]['query']} {_COMMODITY_TERMS}")
     if asset.get("instrument_type") == "ASSET":
         # «LBMA precious metal prices (…)» слишком длинно — берём до запятой/скобки
         short = re.split(r"[,(]", name)[0].strip()
@@ -216,8 +269,14 @@ def ensure_backup_sources() -> dict:
                 report["sec_added"] += 1
         url = _GOOGLE_NEWS.format(q=_news_query(asset))
         if url not in existing:
+            # Переписывать можно только персональную резервную ленту актива. Общие
+            # Google News-ленты из методологии (site:lme.com на четыре металла)
+            # подписаны на несколько активов — их трогать нельзя: иначе каждый
+            # рестарт переписывал бы одну ленту запросом последнего металла,
+            # а остальные оставались бы без своей.
             old = next((s for s in asset.get("sources", [])
-                        if "news.google.com/rss/search" in s["url"]), None)
+                        if "news.google.com/rss/search" in s["url"]
+                        and db.source_subscribers(s["id"]) == [asset["code"]]), None)
             if old:
                 # Запрос изменился — переписываем URL существующей ленты актива.
                 with db.connect() as conn:

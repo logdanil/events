@@ -303,7 +303,8 @@ class Monitor:
                                 pub.get("published_at"), pub.get("source"), llm_result,
                                 status=status, title=pub.get("title"), text=pub.get("text"),
                                 best_asset=best_asset, best_score=best_score,
-                                llm_event_type=llm_event_type, llm_summary=llm_summary)
+                                llm_event_type=llm_event_type, llm_summary=llm_summary,
+                                source_id=pub.get("source_id"))
         return events
 
     def save_events(self, events: list[dict], stats: ScanStats | None = None) -> list[dict]:
@@ -359,6 +360,7 @@ class Monitor:
                     "url": row["url"], "url_hash": row["url_hash"], "title_hash": row["title_hash"],
                     "title": row["title"] or "", "text": row["text"] or "",
                     "published_at": row["published_at"], "source": row["source"],
+                    "source_id": row.get("source_id"),
                     "asset_codes": [row["best_asset"]] if row["best_asset"] else [],
                 })
             filtered = [p for p in filtered if p.get("asset_codes")]

@@ -186,3 +186,71 @@ def test_word_tickers_need_explicit_context(tmp_db):
     # Явный биржевой контекст — засчитывается.
     assert matcher.match_assets({"title": "Coinbase Global (NASDAQ: COIN) announces stock split", "text": ""}, profiles) == ["COIN"]
     assert matcher.match_assets({"title": "AppLovin announces tender offer for shares", "text": ""}, profiles) == ["APP"]
+
+
+def test_commodity_profile_sets_issuer_and_aliases(tmp_db, tmp_path):
+    """Имя товара совпадает с кодом контракта и как алиас терялось (UNIQUE NOCASE
+    против kind='code'); профиль задаёт его как issuer_name — matcher видит «copper»."""
+    md = tmp_path / "u.md"
+    md.write_text("## COPPER\n- **Базовый актив:** LME Copper\n"
+                  "- **Биржа первичного листинга:** London Metal Exchange\n"
+                  "- **Алиасы:** Copper, LME Copper\n- **Источники мониторинга:**\n"
+                  "  - https://news.google.com/rss/search?q=site:lme.com+when:7d&hl=en-US&gl=US&ceid=US:en\n",
+                  encoding="utf-8")
+    assets_sync.sync_from_md(md)
+    a = db.get_asset("COPPER")
+    assert a["instrument_type"] == "ASSET" and a["issuer_name"] == "Copper"
+    assert "Copper" not in a["aliases"], "алиас, равный коду, в таблицу не попадает — поэтому нужен issuer"
+    assert {"LME Copper", "Медь"} <= set(a["aliases"])
+    q = assets_sync._news_query(a)
+    assert "copper" in q and "LME" in q and "margin" in q
+    assert assets_sync.sync_from_md(md)["aliases_added"] == []
+
+
+def test_commodity_headlines_match_and_pass_keywords(tmp_db):
+    from app import matcher
+    for code, name in [("COPPER", "LME Copper"), ("GOLD", "LBMA gold"), ("NICKEL", "LME Nickel"),
+                       ("BR, BRM", "ICE Brent Index, ICE Brent futures"), ("WTI", "CME Crude Oil futures")]:
+        db.upsert_asset(code, name, "ASSET")
+        prof = assets_sync.COMMODITY_PROFILES[code]
+        db.set_asset_field(code, "issuer_name", prof["issuer"])
+        for alias in prof["aliases"]:
+            db.add_alias(code, alias)
+    profiles = matcher.build_profiles(db.list_assets(enabled_only=True))
+    cases = {
+        "LME raises initial margin requirements for copper futures": "COPPER",
+        "CME Group lowers gold futures margins by 8%": "GOLD",
+        "LME circular: changes to nickel delivery rules": "NICKEL",
+        "ICE Brent futures: expiry calendar amendment notice": "BR, BRM",
+        "CME raises crude oil futures margin requirements": "WTI",
+    }
+    for title, expected in cases.items():
+        pub = {"title": title, "text": "", "source_type": "NEWS", "subscribers": []}
+        assert matcher.has_corporate_keywords(pub), title
+        res = matcher.match_publication(pub, profiles)
+        assert res and res[0].asset_code == expected and res[0].confidence in ("high", "medium"), title
+    # Ценовая новость без признаков события отсеивается до сопоставления.
+    assert not matcher.has_corporate_keywords({"title": "Copper price climbs on China demand", "text": ""})
+
+
+def test_backup_sources_keep_shared_google_news_feed(tmp_db):
+    """Общая лента методологии (site:lme.com на четыре металла) — не персональная
+    резервная лента: она не переписывается запросом очередного металла, и каждый
+    металл получает собственную ленту. Повторные старты ничего не меняют."""
+    shared = "https://news.google.com/rss/search?q=site:lme.com+when:7d&hl=en-US&gl=US&ceid=US:en"
+    for code, name in [("ALUM", "LME Aluminium"), ("COPPER", "LME Copper"),
+                       ("ZINC", "LME Zinc"), ("NICKEL", "LME Nickel")]:
+        db.upsert_asset(code, name, "ASSET")
+        db.add_source(code, shared, kind="news", source_type="NEWS")
+    report = assets_sync.ensure_backup_sources()
+    assert report == {"sec_added": 0, "news_added": 4, "news_updated": 0}
+    for code in ("ALUM", "COPPER", "ZINC", "NICKEL"):
+        urls = [s["url"] for s in db.get_asset(code)["sources"]]
+        assert shared in urls, f"{code}: общая лента LME потеряна"
+        own = [u for u in urls if u != shared and "news.google.com" in u]
+        assert len(own) == 1, code
+        assert assets_sync.COMMODITY_PROFILES[code]["issuer"].lower() in own[0].lower(), code
+    assert assets_sync.ensure_backup_sources() == {"sec_added": 0, "news_added": 0,
+                                                   "news_updated": 0}
+    assert db.source_subscribers(db.get_asset("ALUM")["sources"][0]["id"]) == \
+        ["ALUM", "COPPER", "NICKEL", "ZINC"]
