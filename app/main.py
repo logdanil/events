@@ -140,11 +140,9 @@ async def _pin_report(bot, chat_id: int, message_id: int) -> None:
 
 
 async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE) -> None:
-    from app.bot import SCAN_REPORTS_KEY
     if scan_lock.locked():
         log.warning("Scan skipped: previous scan is still running")
         return
-    reports_on = db.get_setting(SCAN_REPORTS_KEY, "1") == "1"
     async with scan_lock:
         stats = ScanStats()
         started_at = datetime.now(MSK)
@@ -161,13 +159,14 @@ async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE) -> None:
         health.resolve("pipeline", "scan_crashed")
         await send_events(context.application, events)
         await notify_health(context.application.bot, health.check_scan_totals(stats))
-    # Отчёт о проверке (переключается командой /reports): события отправляются всегда,
-    # сводка — только если отчёты включены. Получают все: администратор и подписчики.
-    if reports_on:
-        from app.bot import notification_recipients
+    # Отчёт о проверке: события отправляются всегда; сводку без новых событий получают
+    # только те, у кого отчёты о проверках включены (личная настройка /reports).
+    from app.bot import scan_report_recipients
+    recipients = scan_report_recipients(has_events=bool(events))
+    if recipients:
         summary = formatters.format_scan_summary(stats, started_at=started_at,
                                                  finished_at=datetime.now(MSK), new_events=events)
-        for chat_id in notification_recipients():
+        for chat_id in recipients:
             try:
                 # Отчёт без новых событий приходит без звука; со звуком — только события.
                 message = await send_html_message(context.application.bot, chat_id, summary,
@@ -221,21 +220,20 @@ async def _run_manual_scan(update: Update, context: ContextTypes.DEFAULT_TYPE,
     if events:
         await _pin_report(context.application.bot, progress_message.chat_id,
                           progress_message.message_id)
-    # При включённых отчётах (/reports on) сводку ручной проверки получают
-    # и остальные: подписчики + админ, кроме чата, где команда была запущена.
-    from app.bot import SCAN_REPORTS_KEY, notification_recipients
-    if db.get_setting(SCAN_REPORTS_KEY, "1") == "1":
-        invoker = update.effective_user.id if update.effective_user else None
-        for chat_id in notification_recipients():
-            if chat_id == invoker:
-                continue
-            try:
-                message = await send_html_message(context.application.bot, chat_id, summary,
-                                                  silent=not events)
-                if events and message is not None:
-                    await _pin_report(context.application.bot, chat_id, message.message_id)
-            except Exception:
-                log.warning("Не удалось отправить сводку проверки получателю %s", chat_id)
+    # Сводку ручной проверки получают и остальные (кроме чата, где команда запущена):
+    # с новыми событиями — все, без событий — у кого включены отчёты (/reports).
+    from app.bot import scan_report_recipients
+    invoker = update.effective_user.id if update.effective_user else None
+    for chat_id in scan_report_recipients(has_events=bool(events)):
+        if chat_id == invoker:
+            continue
+        try:
+            message = await send_html_message(context.application.bot, chat_id, summary,
+                                              silent=not events)
+            if events and message is not None:
+                await _pin_report(context.application.bot, chat_id, message.message_id)
+        except Exception:
+            log.warning("Не удалось отправить сводку проверки получателю %s", chat_id)
 
 
 async def manual_scan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

@@ -14,17 +14,50 @@ def _text(update) -> str:
 
 
 @pytest.mark.asyncio
-async def test_reports_toggle(tmp_db):
+async def test_reports_toggle_is_personal(tmp_db):
+    """/reports on|off меняет только настройку того, кто её вызвал."""
+    db.add_subscriber(555)
     update = make_update()
     await bot.reports_cmd(update, make_context([]))
     assert "включены" in _text(update), "отчёты о проверках включены по умолчанию"
-    update2 = make_update()
-    await bot.reports_cmd(update2, make_context(["on"]))
-    assert db.get_setting(bot.SCAN_REPORTS_KEY) == "1"
-    assert "включены" in _text(update2)
-    update3 = make_update()
-    await bot.reports_cmd(update3, make_context(["выкл"]))
+    assert "/reports all" in _text(update), "администратору видна настройка по умолчанию"
+
+    update2 = make_update(user_id=555)
+    await bot.reports_cmd(update2, make_context(["выкл"]))
+    assert "выключены" in _text(update2)
+    assert bot.scan_reports_enabled(555) is False
+    assert bot.scan_reports_enabled(bot.settings.admin_telegram_id) is True, "админа не задело"
+    assert db.get_setting(bot.SCAN_REPORTS_KEY, "1") == "1", "общая настройка не изменилась"
+
+    update3 = make_update(user_id=555)
+    await bot.reports_cmd(update3, make_context([]))
+    assert "выключены (ваш выбор)" in _text(update3)
+    assert "/reports all" not in _text(update3)
+
+    update4 = make_update(user_id=555)
+    await bot.reports_cmd(update4, make_context(["on"]))
+    assert bot.scan_reports_enabled(555) is True
+
+
+@pytest.mark.asyncio
+async def test_reports_default_for_all(tmp_db):
+    """/reports all off — по умолчанию выкл. для всех, кто не выбрал сам; личный выбор сильнее."""
+    db.add_subscriber(555)
+    db.add_subscriber(777)
+    await bot.reports_cmd(make_update(user_id=777), make_context(["on"]))
+    update = make_update()
+    await bot.reports_cmd(update, make_context(["all", "off"]))
     assert db.get_setting(bot.SCAN_REPORTS_KEY) == "0"
+    assert bot.scan_reports_enabled(555) is False
+    assert bot.scan_reports_enabled(777) is True
+    admin = bot.settings.admin_telegram_id
+    assert bot.scan_report_recipients(has_events=False) == [777]
+    assert bot.scan_report_recipients(has_events=True) == [admin, 555, 777], \
+        "проверка с новыми событиями приходит всем"
+    # Подписчик не может менять настройку по умолчанию.
+    sub = make_update(user_id=555)
+    await bot.reports_cmd(sub, make_context(["all", "on"]))
+    assert "Нет доступа" in _text(sub) and db.get_setting(bot.SCAN_REPORTS_KEY) == "0"
 
 
 @pytest.mark.asyncio
@@ -177,7 +210,52 @@ async def test_summary_toggle(tmp_db):
 @pytest.mark.asyncio
 async def test_reports_denied_for_non_admin(tmp_db):
     db.add_subscriber(555)
-    for handler in (bot.reports_cmd, bot.scans_history, bot.articles):
+    for handler in (bot.scans_history, bot.articles):
         update = make_update(user_id=555)
         await handler(update, make_context([]))
         assert "Нет доступа" in _text(update), handler.__name__
+
+
+@pytest.mark.asyncio
+async def test_reports_denied_for_stranger(tmp_db):
+    update = make_update(user_id=999)
+    await bot.reports_cmd(update, make_context(["off"]))
+    assert "Нет доступа" in _text(update)
+    assert db.get_setting(f"{bot.SCAN_REPORTS_KEY}:999", "") == ""
+
+
+@pytest.mark.asyncio
+async def test_scheduled_scan_respects_personal_reports(tmp_db, monkeypatch):
+    """Плановая проверка без событий: сводку получают только те, у кого отчёты включены."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from app import main as app_main
+    db.add_subscriber(555)
+    db.add_subscriber(777)
+    await bot.reports_cmd(make_update(user_id=555), make_context(["off"]))
+
+    sent: list[int] = []
+
+    async def fake_send(bot_, chat_id, text, **kwargs):
+        sent.append(chat_id)
+        return SimpleNamespace(message_id=1)
+
+    found: list = []
+
+    async def fake_scan(**kwargs):
+        return list(found)
+
+    monkeypatch.setattr(app_main, "send_html_message", fake_send)
+    monkeypatch.setattr(app_main.monitor, "scan_all", fake_scan)
+    monkeypatch.setattr(app_main, "send_events", AsyncMock())
+    monkeypatch.setattr(app_main, "notify_health", AsyncMock())
+    monkeypatch.setattr(app_main, "_pin_report", AsyncMock())
+    context = SimpleNamespace(application=SimpleNamespace(bot=object()))
+
+    await app_main.scheduled_scan(context)
+    assert sent == [bot.settings.admin_telegram_id, 777]
+
+    sent.clear()
+    found.append({"asset_code": "SPYF", "event_type": "stock_split", "title": "x", "id": 1})
+    await app_main.scheduled_scan(context)
+    assert sent == [bot.settings.admin_telegram_id, 555, 777], "с событиями — всем"

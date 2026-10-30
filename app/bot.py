@@ -19,7 +19,8 @@ HELP = """<b>Мониторинг корпоративных событий</b>
 
 /scan — проверить источники сейчас
 /fullscan — полная проверка, включая резервный поиск Tavily
-/reports on|off — отчёт после каждой плановой проверки (или только события)
+/reports on|off — лично вам: сводка после каждой проверки или только при новых событиях
+/reports all on|off — то же по умолчанию для всех, кто не выбрал сам
 /summary — сводка дня + Excel-детализация файлом; /summary on|off — ежедневно в 19:00 МСК
 /scans [N] — история проверок
 /articles [N] — какие публикации бот скачал и как обработал
@@ -101,6 +102,7 @@ VIEWER_HELP = """<b>Мониторинг корпоративных событи
 /digest — сводка событий за 24 часа
 /events [АКТИВ] [N] — история событий
 /event ID или /event АКТИВ — полный отчёт о событии
+/reports on|off — сводка после каждой проверки или только при новых событиях
 /id — показать ваш Telegram ID
 
 Управление активами и настройками — у администратора."""
@@ -540,26 +542,85 @@ def notification_recipients() -> list[int]:
     return recipients
 
 
+_ON_ARGS, _OFF_ARGS = ("on", "вкл", "1"), ("off", "выкл", "0")
+
+
+def _personal_reports_key(chat_id: int) -> str:
+    return f"{SCAN_REPORTS_KEY}:{chat_id}"
+
+
+def scan_reports_default() -> bool:
+    """Настройка по умолчанию (для тех, кто личную не выбирал) — задаёт администратор."""
+    return db.get_setting(SCAN_REPORTS_KEY, "1") == "1"
+
+
+def scan_reports_personal(chat_id: int) -> bool | None:
+    """Личная настройка получателя: True/False или None, если не выбиралась."""
+    value = db.get_setting(_personal_reports_key(chat_id), "")
+    return None if value == "" else value == "1"
+
+
+def scan_reports_enabled(chat_id: int) -> bool:
+    """Получать ли сводку проверки без новых событий: личная настройка, иначе общая."""
+    personal = scan_reports_personal(chat_id)
+    return scan_reports_default() if personal is None else personal
+
+
+def scan_report_recipients(has_events: bool) -> list[int]:
+    """Кому отправлять сводку проверки. С новыми событиями — всем получателям;
+    без событий — только тем, у кого отчёты о проверках включены (/reports)."""
+    return [chat_id for chat_id in notification_recipients()
+            if has_events or scan_reports_enabled(chat_id)]
+
+
 async def reports_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/reports on|off — присылать ли отчёт после каждой плановой проверки."""
-    if not await guard(update): return
-    arg = (context.args[0].lower() if context.args else "")
-    if arg in ("on", "вкл", "1"):
-        db.set_setting(SCAN_REPORTS_KEY, "1")
+    """/reports on|off — личная настройка: присылать ли сводку проверки, в которой
+    новых событий нет. Уведомления о событиях приходят всегда.
+    /reports all on|off — настройка по умолчанию для всех (только администратор)."""
+    if not await viewer_guard(update): return
+    args = [a.lower() for a in (context.args or [])]
+    chat_id = update.effective_user.id
+    if args and args[0] in ("all", "все", "всем"):
+        if not await guard(update): return
+        arg = args[1] if len(args) > 1 else ""
+        if arg not in _ON_ARGS + _OFF_ARGS:
+            await update.effective_message.reply_text(
+                f"По умолчанию отчёты о проверках без событий: "
+                f"{'включены' if scan_reports_default() else 'выключены'}.\n"
+                "Изменить: /reports all on | /reports all off. "
+                "Личный выбор получателей (/reports on|off) сильнее настройки по умолчанию.")
+            return
+        db.set_setting(SCAN_REPORTS_KEY, "1" if arg in _ON_ARGS else "0")
         await update.effective_message.reply_text(
-            "✅ Отчёты о проверках включены: после каждой плановой проверки сводка придёт вам "
-            "и всем подписчикам, даже если новых событий нет. Выключить: /reports off")
-    elif arg in ("off", "выкл", "0"):
-        db.set_setting(SCAN_REPORTS_KEY, "0")
+            f"✅ По умолчанию отчёты о проверках без событий "
+            f"{'включены' if arg in _ON_ARGS else 'выключены'}. "
+            "Это касается получателей, которые не выбирали сами через /reports on|off.")
+        return
+    arg = args[0] if args else ""
+    if arg in _ON_ARGS:
+        db.set_setting(_personal_reports_key(chat_id), "1")
         await update.effective_message.reply_text(
-            "🔕 Отчёты о проверках выключены: уведомления придут только при новых событиях. "
-            "Включить: /reports on")
+            "✅ Отчёты о проверках включены: сводка будет приходить после каждой проверки, "
+            "даже если новых событий нет (без звука). Выключить: /reports off")
+    elif arg in _OFF_ARGS:
+        db.set_setting(_personal_reports_key(chat_id), "0")
+        await update.effective_message.reply_text(
+            "🔕 Отчёты о проверках без событий выключены: сообщения будут приходить, "
+            "только когда найдены новые события. Включить: /reports on")
     else:
-        enabled = db.get_setting(SCAN_REPORTS_KEY, "1") == "1"
-        await update.effective_message.reply_text(
-            f"Отчёты о плановых проверках: {'включены' if enabled else 'выключены'}.\n"
-            "Переключить: /reports on — сводка после каждой проверки; "
-            "/reports off — только новые события.\nИстория проверок: /scans")
+        personal = scan_reports_personal(chat_id)
+        enabled = scan_reports_enabled(chat_id)
+        origin = "ваш выбор" if personal is not None else "настройка по умолчанию"
+        text = (f"Отчёты о проверках без новых событий: {'включены' if enabled else 'выключены'} "
+                f"({origin}).\n"
+                "/reports on — сводка после каждой проверки;\n"
+                "/reports off — сообщения только при новых событиях.\n"
+                "Уведомления о самих событиях приходят всегда.")
+        if authorized(update):
+            text += ("\n\nПо умолчанию для всех: "
+                     f"{'включены' if scan_reports_default() else 'выключены'} — /reports all on|off."
+                     "\nИстория проверок: /scans")
+        await update.effective_message.reply_text(text)
 
 
 async def scans_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1044,7 +1105,7 @@ async def setup_commands(app):
         BotCommand("find","найти актив"), BotCommand("add","добавить актив"),
         BotCommand("alias","добавить алиас"), BotCommand("addsource","добавить источник"),
         BotCommand("digest","сводка за 24 часа"), BotCommand("events","история событий"),
-        BotCommand("status","статус"),
+        BotCommand("status","статус"), BotCommand("reports","отчёты о проверках вкл/выкл"),
         BotCommand("pause","пауза"), BotCommand("resume","продолжить"),
         BotCommand("fullscan","проверка с резервным поиском"), BotCommand("cost","стоимость LLM"),
         BotCommand("debugscan","диагностика одного актива"), BotCommand("dbstats","состояние базы"),
