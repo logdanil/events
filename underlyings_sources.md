@@ -65,16 +65,18 @@
 ## ALIBABA
 - **Базовый актив:** Американские депозитарные расписки на акции Alibaba Group Holding Limited
 - **ISIN:** `US01609W1027`
+- **Тикер:** BABA
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
-  - https://www.nasdaq.com/market-activity/stocks/baba/press-releases
+  - https://www.alibabagroup.com/en-US/investor-relations
 
 ## BAIDU
 - **Базовый актив:** Американские депозитарные расписки на акции Baidu.com, Inc.
 - **ISIN:** `US0567521085`
+- **Тикер:** BIDU
 - **Биржа первичного листинга:** Nasdaq
 - **Источники мониторинга:**
-  - https://www.nasdaq.com/market-activity/stocks/bidu/press-releases
+  - https://ir.baidu.com/rss/news-releases.xml
 
 ## EM
 - **Базовый актив:** iShares MSCI Emerging Markets ETF
@@ -174,67 +176,67 @@
 ## TSM
 - **Базовый актив:** Американские депозитарные расписки на акции Taiwan Semiconductor Manufacturing Company, Limited
 - **ISIN:** `US8740391003`
+- **Тикер:** TSM
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
   - https://pr.tsmc.com/english/latest-news
-  - https://www.nasdaq.com/market-activity/stocks/tsm/press-releases
   - https://investor.tsmc.com/english/credit-rating
 
 ## SAP
 - **Базовый актив:** Американские депозитарные расписки на акции SAP SE
 - **ISIN:** `US8030542042`
+- **Тикер:** SAP
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
   - https://news.sap.com/press-room/
-  - https://www.nasdaq.com/market-activity/stocks/sap/press-releases
 
 ## SONY
 - **Базовый актив:** Американские депозитарные расписки на акции Sony Group Corporation
 - **ISIN:** `US8356993076`
+- **Тикер:** SONY
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
   - https://www.sony.com/en/SonyInfo/News/Press/
-  - https://www.nasdaq.com/market-activity/stocks/sony/press-releases
 
 ## PDD
 - **Базовый актив:** Американские депозитарные расписки на акции PDD Holdings Inc
 - **ISIN:** `US7223041028`
+- **Тикер:** PDD
 - **Биржа первичного листинга:** Nasdaq
 - **Источники мониторинга:**
   - https://investor.pddholdings.com/news-releases
-  - https://www.nasdaq.com/market-activity/stocks/pdd/press-releases
 
 ## JDCOM
 - **Базовый актив:** Американские депозитарные расписки на акции JD.com
 - **ISIN:** `US47215P1066`
+- **Тикер:** JD
 - **Биржа первичного листинга:** Nasdaq
 - **Источники мониторинга:**
-  - https://www.nasdaq.com/market-activity/stocks/jd/press-releases
   - https://ir.jd.com/news-releases
 
 ## NOVARTIS
 - **Базовый актив:** Американские депозитарные расписки на акции Novartis AG
 - **ISIN:** `US66987V1098`
+- **Тикер:** NVS
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
   - https://www.novartis.com/news/newsroom
-  - https://www.nasdaq.com/market-activity/stocks/nvs/press-releases
 
 ## TOYOTA
 - **Базовый актив:** Американские депозитарные расписки на акции Toyota Motor Corporation
 - **ISIN:** `US8923313071`
+- **Тикер:** TM
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
   - https://global.toyota/en/newsroom/
-  - https://www.nasdaq.com/market-activity/stocks/tm/press-releases
 
 ## ASML
 - **Базовый актив:** Депозитарные расписки на акции ASML Holding
 - **ISIN:** `USN070592100`
+- **Тикер:** ASML
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
   - https://www.asml.com/en/news/press-releases
-  - https://www.nasdaq.com/market-activity/stocks/asml/press-releases
 
 ## KOREA
 - **Базовый актив:** iShares MSCI South Korea ETF
@@ -488,232 +490,234 @@
   - https://www.moex.com/ru/derivatives/
   - https://www.moex.com/export/news.aspx?cat=101
 
-<!-- Акции США (фьючерсы МосБиржи на иностранные акции). CIK — для ленты SEC EDGAR, Эмитент/Алиасы — для сопоставления публикаций. -->
+<!-- Акции США (фьючерсы МосБиржи на иностранные акции). CIK — для ленты SEC EDGAR, Эмитент/Тикер/Алиасы — для сопоставления публикаций.
+     Страницы nasdaq.com/…/press-releases не используются: отдают каркас без пресс-релизов. -->
 
 ## AMZN
 - **Базовый актив:** Акции Amazon.com, Inc. (AMZN)
 - **Эмитент:** Amazon.com, Inc.
+- **Тикер:** AMZN
 - **Алиасы:** Amazon
 - **CIK:** `1018724`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
-  - https://ir.aboutamazon.com/news-release/default.aspx
+  - https://ir.aboutamazon.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
   - https://press.aboutamazon.com/press-release-archive
-  - https://www.nasdaq.com/market-activity/stocks/amzn/press-releases
 
 ## NFLX
 - **Базовый актив:** Акции Netflix, Inc. (NFLX)
 - **Эмитент:** Netflix, Inc.
+- **Тикер:** NFLX
 - **Алиасы:** Netflix
 - **CIK:** `1065280`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
   - https://about.netflix.com/en/newsroom
-  - https://www.nasdaq.com/market-activity/stocks/nflx/press-releases
+  - https://ir.netflix.net/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
 
 ## LULU
 - **Базовый актив:** Акции lululemon athletica inc. (LULU)
 - **Эмитент:** lululemon athletica inc.
+- **Тикер:** LULU
 - **Алиасы:** Lululemon
 - **CIK:** `1397187`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
   - https://corporate.lululemon.com/media/press-releases
-  - https://www.nasdaq.com/market-activity/stocks/lulu/press-releases
 
 ## UBER
 - **Базовый актив:** Акции Uber Technologies, Inc. (UBER)
 - **Эмитент:** Uber Technologies, Inc.
+- **Тикер:** UBER
 - **Алиасы:** Uber
 - **CIK:** `1543151`
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
-  - https://investor.uber.com/news-events/news/default.aspx
+  - https://investor.uber.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
   - https://www.uber.com/newsroom/
-  - https://www.nasdaq.com/market-activity/stocks/uber/press-releases
 
 ## BSX
 - **Базовый актив:** Акции Boston Scientific Corporation (BSX)
 - **Эмитент:** Boston Scientific Corporation
+- **Тикер:** BSX
 - **Алиасы:** Boston Scientific
 - **CIK:** `885725`
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
-  - https://news.bostonscientific.com/
+  - https://news.bostonscientific.com/news-releases?pagetemplate=rss
   - https://investors.bostonscientific.com/
-  - https://www.nasdaq.com/market-activity/stocks/bsx/press-releases
 
 ## CMG
 - **Базовый актив:** Акции Chipotle Mexican Grill, Inc. (CMG)
 - **Эмитент:** Chipotle Mexican Grill, Inc.
+- **Тикер:** CMG
 - **Алиасы:** Chipotle
 - **CIK:** `1058090`
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
-  - https://ir.chipotle.com/news-releases
+  - https://ir.chipotle.com/news-releases?pagetemplate=rss
   - https://newsroom.chipotle.com/
-  - https://www.nasdaq.com/market-activity/stocks/cmg/press-releases
 
 ## AMD
 - **Базовый актив:** Акции Advanced Micro Devices, Inc. (AMD)
 - **Эмитент:** Advanced Micro Devices, Inc.
+- **Тикер:** AMD
 - **Алиасы:** Advanced Micro Devices
 - **CIK:** `2488`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
   - https://ir.amd.com/rss/news-releases.xml
   - https://ir.amd.com/news-events/press-releases
-  - https://www.nasdaq.com/market-activity/stocks/amd/press-releases
 
 ## SNDK
 - **Базовый актив:** Акции Sandisk Corporation (SNDK)
 - **Эмитент:** Sandisk Corporation
+- **Тикер:** SNDK
 - **Алиасы:** Sandisk
 - **CIK:** `2023554`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
   - https://investor.sandisk.com/
-  - https://www.nasdaq.com/market-activity/stocks/sndk/press-releases
+  - https://investor.sandisk.com/rss/news-releases.xml
 
 ## NBIS
 - **Базовый актив:** Акции Nebius Group N.V. (NBIS)
 - **Эмитент:** Nebius Group N.V.
+- **Тикер:** NBIS
 - **Алиасы:** Nebius
 - **CIK:** `1513845`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
   - https://nebius.com/newsroom
-  - https://www.nasdaq.com/market-activity/stocks/nbis/press-releases
 
 ## SPCX
 - **Базовый актив:** Акции Space Exploration Technologies Corp. (SPCX)
 - **Эмитент:** Space Exploration Technologies Corp.
+- **Тикер:** SPCX
 - **Алиасы:** SpaceX
 - **CIK:** `1181412`
 - **Биржа первичного листинга:** US
 - **Источники мониторинга:**
-  - https://ir.spacex.com/
-  - https://www.nasdaq.com/market-activity/stocks/spcx/press-releases
+  - https://ir.spacex.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
 
 ## TSLA
 - **Базовый актив:** Акции Tesla, Inc. (TSLA)
 - **Эмитент:** Tesla, Inc.
+- **Тикер:** TSLA
 - **Алиасы:** Tesla
 - **CIK:** `1318605`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
-  - https://www.nasdaq.com/market-activity/stocks/tsla/press-releases
+  <!-- ir.tesla.com и tesla.com закрыты антибот-защитой (403 на все адреса и TLS-отпечатки). Покрытие: SEC EDGAR по CIK + Google News. -->
 
 ## SMCI
 - **Базовый актив:** Акции Super Micro Computer, Inc. (SMCI)
 - **Эмитент:** Super Micro Computer, Inc.
+- **Тикер:** SMCI
 - **Алиасы:** Supermicro, Super Micro
 - **CIK:** `1375365`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
-  - https://www.supermicro.com/en/newsroom/pressreleases
-  - https://ir.supermicro.com/news/default.aspx
-  - https://www.nasdaq.com/market-activity/stocks/smci/press-releases
+  - https://ir.supermicro.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
 
 ## HOOD
 - **Базовый актив:** Акции Robinhood Markets, Inc. (HOOD)
 - **Эмитент:** Robinhood Markets, Inc.
+- **Тикер:** HOOD
 - **Алиасы:** Robinhood
 - **CIK:** `1783879`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
   - https://investors.robinhood.com/
-  - https://newsroom.aboutrobinhood.com/
-  - https://www.nasdaq.com/market-activity/stocks/hood/press-releases
+  - https://investors.robinhood.com/rss/news-releases.xml
 
 ## COIN
 - **Базовый актив:** Акции Coinbase Global, Inc. (COIN)
 - **Эмитент:** Coinbase Global, Inc.
+- **Тикер:** COIN
 - **Алиасы:** Coinbase
 - **CIK:** `1679788`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
-  - https://investor.coinbase.com/
-  - https://investor.coinbase.com/news/default.aspx
-  - https://www.nasdaq.com/market-activity/stocks/coin/press-releases
+  - https://investor.coinbase.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
 
 ## CRWD
 - **Базовый актив:** Акции CrowdStrike Holdings, Inc. (CRWD)
 - **Эмитент:** CrowdStrike Holdings, Inc.
+- **Тикер:** CRWD
 - **Алиасы:** CrowdStrike
 - **CIK:** `1535527`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
   - https://ir.crowdstrike.com/rss/news-releases.xml
   - https://ir.crowdstrike.com/news-releases
-  - https://www.nasdaq.com/market-activity/stocks/crwd/press-releases
 
 ## LITE
 - **Базовый актив:** Акции Lumentum Holdings Inc. (LITE)
 - **Эмитент:** Lumentum Holdings Inc.
+- **Тикер:** LITE
 - **Алиасы:** Lumentum
 - **CIK:** `1633978`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
-  - https://investor.lumentum.com/
+  - https://investor.lumentum.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
   - https://www.lumentum.com/en/newsroom
-  - https://www.nasdaq.com/market-activity/stocks/lite/press-releases
 
 ## COHR
 - **Базовый актив:** Акции Coherent Corp. (COHR)
 - **Эмитент:** Coherent Corp.
+- **Тикер:** COHR
 - **CIK:** `820318`
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
   - https://investors.coherent.com/rss/news-releases.xml
   - https://investors.coherent.com/news-releases
-  - https://www.nasdaq.com/market-activity/stocks/cohr/press-releases
 
 ## PANW
 - **Базовый актив:** Акции Palo Alto Networks, Inc. (PANW)
 - **Эмитент:** Palo Alto Networks, Inc.
+- **Тикер:** PANW
 - **Алиасы:** Palo Alto Networks
 - **CIK:** `1327567`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
   - https://investors.paloaltonetworks.com/rss/news-releases.xml
-  - https://www.nasdaq.com/market-activity/stocks/panw/press-releases
 
 ## DASH
 - **Базовый актив:** Акции DoorDash, Inc. (DASH)
 - **Эмитент:** DoorDash, Inc.
+- **Тикер:** DASH
 - **Алиасы:** DoorDash
 - **CIK:** `1792789`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
-  - https://ir.doordash.com/news/default.aspx
-  - https://www.nasdaq.com/market-activity/stocks/dash/press-releases
+  - https://ir.doordash.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+  - https://about.doordash.com/en-us/news
 
 ## APP
 - **Базовый актив:** Акции AppLovin Corporation (APP)
 - **Эмитент:** AppLovin Corporation
+- **Тикер:** APP
 - **Алиасы:** AppLovin
 - **CIK:** `1751008`
 - **Биржа первичного листинга:** NASDAQ
 - **Источники мониторинга:**
-  - https://investors.applovin.com/
+  - https://investors.applovin.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
   - https://www.applovin.com/blog/
-  - https://www.nasdaq.com/market-activity/stocks/app/press-releases
 
 ## CVNA
 - **Базовый актив:** Акции Carvana Co. (CVNA)
 - **Эмитент:** Carvana Co.
+- **Тикер:** CVNA
 - **Алиасы:** Carvana
 - **CIK:** `1690820`
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
-  - https://investors.carvana.com/news-releases
-  - https://www.nasdaq.com/market-activity/stocks/cvna/press-releases
+  - https://investors.carvana.com/rss/news-releases.xml
 
 <!-- Акции США — вечные фьючерсы МосБиржи на фиксинги иностранных акций, запуск 10/12/17.11.2026
      (https://www.moex.com/n105658). Тикер — для сопоставления (совпадает с кодом и как алиас теряется),
-     CIK — лента SEC EDGAR; резервная лента Google News подключается автоматически.
-     Страницы nasdaq.com/…/press-releases не используются: отдают каркас без пресс-релизов. -->
+     CIK — лента SEC EDGAR; резервная лента Google News подключается автоматически. -->
 
 ## INTC
 - **Базовый актив:** Акции Intel Corporation (INTC)

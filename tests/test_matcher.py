@@ -141,3 +141,26 @@ def test_legacy_rows_reopen(tmp_db):
     assert db.article_seen("h1") is False
     assert db.article_seen("h2") is False
     assert db.article_seen("h3") is True, "реально классифицированные не переобрабатываются"
+
+
+def test_brand_in_asset_own_news_feed_is_medium(tmp_db):
+    """Бренд в заголовке собственной ленты Google News/Tavily актива — medium (в Gemini);
+    тот же заголовок из чужого/общего источника — low; без текстового совпадения — ничего."""
+    db.upsert_asset("TSLA", "Акции Tesla, Inc. (TSLA)", "SHARE", aliases=["Tesla"])
+    db.set_asset_field("TSLA", "issuer_name", "Tesla, Inc.")
+    profiles = matcher.build_profiles(db.list_assets(enabled_only=True))
+    title = "Tesla announces 3-for-1 stock split"
+
+    def best(**src):
+        res = matcher.match_publication({"title": title, "text": "", **src}, profiles)
+        return res[0] if res else None
+
+    own = best(source_type="NEWS", subscribers=["TSLA"])
+    assert own.confidence == "medium" and "asset_news_feed" in own.matched_by
+    assert best(source_type="SEARCH", subscribers=["TSLA"]).confidence == "medium"
+    assert best(source_type="NEWS", subscribers=[]).confidence == "low", "глобальная лента — без бонуса"
+    assert best(source_type="NEWS", subscribers=["TSLA", "A", "B"]).confidence == "low", "общая лента"
+    assert best(source_type="NEWS", subscribers=["OTHER"]).confidence == "low", "лента другого актива"
+    nothing = matcher.match_publication({"title": "Automaker announces stock split", "text": "",
+                                         "source_type": "NEWS", "subscribers": ["TSLA"]}, profiles)
+    assert nothing == [], "без имени в тексте собственная лента не даёт кандидата"

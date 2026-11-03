@@ -228,6 +228,10 @@ def sync_from_md(path: str | Path) -> dict:
 # --- Резервные источники: каналы, которые по устройству не блокируют ботов -------
 
 _GOOGLE_NEWS = "https://news.google.com/rss/search?q={q}+when:3d&hl=en-US&gl=US&ceid=US:en"
+# Признак автоматически созданной резервной ленты: только такие переписываются при смене
+# запроса. Ленты из методологии (TRON DAO, site:lme.com — окно 7d) остаются как есть,
+# иначе каждый старт переписывал бы их, а синхронизация добавляла бы обратно.
+_AUTO_FEED_MARK = "+when:3d&"
 _SEC_BY_CIK = ("https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik}"
                "&type=&dateb=&owner=include&count=40&output=atom")
 _CORP_TERMS = "(split OR dividend OR delisting OR merger OR acquisition OR listing OR spin-off OR tender OR ADR)"
@@ -290,7 +294,7 @@ def ensure_backup_sources() -> dict:
             # рестарт переписывал бы одну ленту запросом последнего металла,
             # а остальные оставались бы без своей.
             old = next((s for s in asset.get("sources", [])
-                        if "news.google.com/rss/search" in s["url"]
+                        if "news.google.com/rss/search" in s["url"] and _AUTO_FEED_MARK in s["url"]
                         and db.source_subscribers(s["id"]) == [asset["code"]]), None)
             if old:
                 # Запрос изменился — переписываем URL существующей ленты актива.

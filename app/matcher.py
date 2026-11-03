@@ -282,6 +282,14 @@ def _source_owned(pub: dict, code: str) -> bool:
     return code in subscribers and 0 < len(subscribers) <= 2
 
 
+def _searched_for_asset(pub: dict, code: str) -> bool:
+    """Публикация из поисковой ленты, собранной по запросу этого актива
+    (персональная лента Google News или Tavily-поиск по активу)."""
+    subscribers = pub.get("subscribers") or []
+    return (pub.get("source_type") in ("SEARCH", "NEWS")
+            and code in subscribers and 0 < len(subscribers) <= 2)
+
+
 def _match_sec(pub: dict, profile: AssetProfile) -> MatchResult | None:
     """Публикации SEC-фидов сопоставляются только по filer: CIK либо точное имя.
     Никакого fuzzy и никакого владения источником."""
@@ -397,6 +405,14 @@ def match_one(pub: dict, profile: AssetProfile) -> MatchResult:
     strong = [s for s in signals if s >= W_MID_ALIAS]
     if len(strong) >= 2:
         score += 0.05
+    # Собственная поисковая лента актива (Google News / Tavily по его запросу) и имя
+    # или бренд в тексте («Tesla announces stock split»): одного бренда для другого
+    # источника мало (low), но здесь публикацию искали именно по этому активу —
+    # достаточно для medium, окончательно решает Gemini. Текстовое совпадение
+    # обязательно: сама по себе лента владения не даёт.
+    if not owned and score < MEDIUM and strong and _searched_for_asset(pub, profile.code):
+        score = MEDIUM
+        matched_by.append("asset_news_feed")
 
     for negative in profile.negatives:
         if _phrase_in(negative, text) and score < W_FULL_NAME and not owned:

@@ -174,6 +174,8 @@ _LME_CIRCULARS_FEED = ("https://news.google.com/rss/search?q=site:lme.com+when:7
                        "&hl=en-US&gl=US&ceid=US:en")
 
 # Сломанные у владельцев страницы → рабочие замены (применяется при старте).
+_Q4_RSS = "rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags="
+
 URL_FIXES = {
     "https://www.ishares.com/uk/individual/en/products/251751/ishares-msci-emerging-markets-ucits-etf":
         "https://www.ishares.com/us/products/239637/ishares-msci-emerging-markets-etf",
@@ -214,7 +216,29 @@ URL_FIXES = {
         "https://www.ishares.com/us/products/239680/ishares-msci-south-africa-etf",
     "https://www.ishares.com/us/products/271542/":
         "https://www.ishares.com/us/products/271542/ishares-msci-saudi-arabia-etf",
+    # Акции США: IR-страницы, которые без JS отдают каркас без пресс-релизов (Q4
+    # default.aspx, корни IR-сайтов, newsroom-страницы, где 30 ссылок съедает меню),
+    # и закрытые 403 — переводим на RSS тех же сайтов (проверены загрузчиком бота).
+    "https://ir.aboutamazon.com/news-release/default.aspx": f"https://ir.aboutamazon.com/{_Q4_RSS}",
+    "https://investor.uber.com/news-events/news/default.aspx": f"https://investor.uber.com/{_Q4_RSS}",
+    "https://news.bostonscientific.com/": "https://news.bostonscientific.com/news-releases?pagetemplate=rss",
+    "https://ir.chipotle.com/news-releases": "https://ir.chipotle.com/news-releases?pagetemplate=rss",
+    "https://ir.spacex.com/": f"https://ir.spacex.com/{_Q4_RSS}",
+    "https://ir.supermicro.com/news/default.aspx": f"https://ir.supermicro.com/{_Q4_RSS}",
+    "https://www.supermicro.com/en/newsroom/pressreleases": f"https://ir.supermicro.com/{_Q4_RSS}",
+    "https://newsroom.aboutrobinhood.com/": "https://investors.robinhood.com/rss/news-releases.xml",
+    "https://investor.coinbase.com/news/default.aspx": f"https://investor.coinbase.com/{_Q4_RSS}",
+    "https://investor.coinbase.com/": f"https://investor.coinbase.com/{_Q4_RSS}",
+    "https://investor.lumentum.com/": f"https://investor.lumentum.com/{_Q4_RSS}",
+    "https://ir.doordash.com/news/default.aspx": f"https://ir.doordash.com/{_Q4_RSS}",
+    "https://investors.applovin.com/": f"https://investors.applovin.com/{_Q4_RSS}",
+    "https://investors.carvana.com/news-releases": "https://investors.carvana.com/rss/news-releases.xml",
 }
+
+# Страницы, выводимые из мониторинга без замены (SQL LIKE): страницы акций nasdaq.com
+# (пресс-релизы, котировки) отдают один и тот же каркас без новостей для любого тикера.
+# Замены — официальные ленты эмитентов в методологии; тикер задаётся полем «Тикер».
+RETIRED_SOURCE_PATTERNS = ["https://www.nasdaq.com/market-activity/stocks/%"]
 
 
 # Живые страницы первоисточников взамен исчезнувших (404): подключаются при старте.
@@ -279,6 +303,19 @@ def rehabilitate_sources() -> list[str]:
                          (_now(), f"source:{old_row[0]}", f"disabled:{old_row[0]}"))
             messages.append(f"сломанный URL заменён на рабочий: {new}")
     # Замены исчезнувших страниц — отдельными соединениями уже после транзакции выше.
+    with db.connect() as conn:
+        for pattern in RETIRED_SOURCE_PATTERNS:
+            ids = [r[0] for r in conn.execute(
+                "SELECT d.id FROM source_defs d WHERE d.url LIKE ? AND (d.enabled=1 OR EXISTS "
+                "(SELECT 1 FROM asset_sources s WHERE s.source_id=d.id))", (pattern,)).fetchall()]
+            for sid in ids:
+                conn.execute("DELETE FROM asset_sources WHERE source_id=?", (sid,))
+                conn.execute("UPDATE source_defs SET enabled=0 WHERE id=?", (sid,))
+                conn.execute("UPDATE health_incidents SET resolved_at=? WHERE component='source' "
+                             "AND key IN (?, ?) AND resolved_at IS NULL",
+                             (_now(), f"source:{sid}", f"disabled:{sid}"))
+            if ids:
+                messages.append(f"выведено из мониторинга {len(ids)} страниц без публикаций: {pattern}")
     for code, urls in REPLACEMENT_SOURCES.items():
         with db.connect() as conn:
             if not conn.execute("SELECT 1 FROM assets WHERE code=?", (code,)).fetchone():

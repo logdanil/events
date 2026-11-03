@@ -50,8 +50,9 @@ def test_sync_adds_missing_and_is_idempotent(tmp_db):
     tsm = db.get_asset("TSM")
     assert tsm["instrument_type"] == "ADR"
     assert tsm["isin"] == "US8740391003"
-    assert len(tsm["sources"]) == 3
-    # Английский алиас и тикер из URL достались matcher'у.
+    assert len(tsm["sources"]) == 2, "страница nasdaq.com без пресс-релизов больше не подключается"
+    assert tsm["underlying_ticker"] == "TSM", "тикер — из поля «Тикер» методологии"
+    # Английский алиас достался matcher'у.
     assert any("Taiwan Semiconductor" in a for a in tsm["aliases"])
     resolved, _ = db.resolve_asset("Taiwan Semiconductor Manufacturing Company, Limited")
     assert resolved and resolved["code"] == "TSM"
@@ -63,7 +64,7 @@ def test_sync_adds_missing_and_is_idempotent(tmp_db):
     # Повторный запуск ничего не дублирует.
     report2 = assets_sync.sync_from_md(MD)
     assert report2["assets_added"] == [] and report2["sources_added"] == 0
-    assert len(db.get_asset("TSM")["sources"]) == 3
+    assert len(db.get_asset("TSM")["sources"]) == 2
 
 def test_backup_sources_for_every_asset(tmp_db):
     db.upsert_asset("TSM", "Американские депозитарные расписки на акции Taiwan Semiconductor", "ADR")

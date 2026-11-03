@@ -5,6 +5,6 @@
 становятся доступными для повторной обработки (см. db.article_seen).
 Повышайте версию при изменении соответствующей логики.
 """
-MATCHER_VERSION = 9   # v9: 27 акций США (вечные фьючерсы МосБиржи), тикеры-слова ON/U/BE/NOW/ARM/TEAM/SNOW/SPOT/SHOP — строгие
+MATCHER_VERSION = 10  # v10: бренд в собственной ленте Google News/Tavily актива — medium (в Gemini); v9: 27 акций США, строгие тикеры-слова
 FILTER_VERSION = 5  # v5: товарные события — изменения ГО (margins/margin change), ценовые лимиты, часы торгов
 LLM_PROMPT_VERSION = 6  # v6: товарные контракты — margin_change и правила LME/CME/ICE/LBMA

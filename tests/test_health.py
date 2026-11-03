@@ -401,3 +401,62 @@ def test_revive_sources_reenabled(tmp_db, monkeypatch):
     fresh = next(s for s in db.list_source_defs(enabled_only=False) if s["id"] == src["id"])
     assert fresh["enabled"] == 1
     assert health.rehabilitate_sources() == []
+
+
+def test_nasdaq_press_release_pages_retired(tmp_db):
+    """Страницы nasdaq.com/…/press-releases по акциям — каркас без новостей: при старте
+    выключаются и отписываются, их инциденты закрываются; ETF-страницы не трогаются."""
+    db.upsert_asset("TSLA", "Акции Tesla, Inc. (TSLA)", "SHARE")
+    db.upsert_asset("NASD", "Invesco QQQ ETF Trust Unit Series 1 (QQQ)", "ETF")
+    stock = "https://www.nasdaq.com/market-activity/stocks/tsla/press-releases"
+    etf = "https://www.nasdaq.com/market-activity/etf/qqq/press-releases"
+    db.add_source("TSLA", stock)
+    db.add_source("TSLA", "https://www.nasdaq.com/market-activity/stocks/tsla")
+    db.add_source("NASD", etf)
+    sid = next(s["id"] for s in db.list_source_defs() if s["url"] == stock)
+    health.report("source", f"source:{sid}", "недоступен 5 проверок подряд")
+    messages = health.rehabilitate_sources()
+    assert any("выведено из мониторинга 2 страниц" in m for m in messages)
+    assert db.get_asset("TSLA")["sources"] == []
+    assert stock not in {s["url"] for s in db.list_source_defs(enabled_only=True)}
+    assert etf in {s["url"] for s in db.get_asset("NASD")["sources"]}
+    assert not [i for i in health.open_incidents() if i["key"] == f"source:{sid}"]
+    assert health.rehabilitate_sources() == [], "повторный запуск ничего не трогает"
+
+
+def test_us_stock_url_fixes_match_methodology():
+    """Методология уже содержит рабочие адреса: старые (пустые/403) в ней не встречаются,
+    новые — встречаются, иначе синхронизация возвращала бы старые подписки."""
+    from app import assets_sync
+    from tests.test_assets_sync import MD
+    md_urls = {u for a in assets_sync.parse_underlyings_md(MD) for u in a["sources"]}
+    us = {old: new for old, new in health.URL_FIXES.items()
+          if any(d in old for d in ("aboutamazon", "uber.com", "bostonscientific", "chipotle", "spacex",
+                                    "supermicro", "robinhood", "coinbase", "lumentum", "doordash",
+                                    "applovin", "carvana"))}
+    assert len(us) == 14
+    for old, new in us.items():
+        assert old not in md_urls, old
+        assert new in md_urls, new
+    assert not any("nasdaq.com/market-activity/stocks/" in u for u in md_urls)
+
+
+def test_existing_db_migrates_to_new_us_sources(tmp_db):
+    """Старая база (страницы nasdaq, пустые IR-страницы): после старта у акций — рабочие
+    ленты, подписки на заменённые адреса перенесены, второй старт ничего не меняет."""
+    from app import assets_sync
+    from tests.test_assets_sync import MD
+    db.upsert_asset("COIN", "Акции Coinbase Global, Inc. (COIN)", "SHARE")
+    for url in ("https://investor.coinbase.com/", "https://investor.coinbase.com/news/default.aspx",
+                "https://www.nasdaq.com/market-activity/stocks/coin/press-releases"):
+        db.add_source("COIN", url)
+    assets_sync.sync_from_md(MD)
+    assets_sync.ensure_backup_sources()
+    health.rehabilitate_sources()
+    urls = {s["url"] for s in db.get_asset("COIN")["sources"]}
+    assert f"https://investor.coinbase.com/{health._Q4_RSS}" in urls
+    assert not any("nasdaq.com" in u or u.endswith("default.aspx") or u == "https://investor.coinbase.com/"
+                   for u in urls), urls
+    assert db.get_asset("COIN")["underlying_ticker"] == "COIN"
+    assert assets_sync.sync_from_md(MD)["sources_added"] == 0
+    assert health.rehabilitate_sources() == []
