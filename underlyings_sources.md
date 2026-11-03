@@ -709,3 +709,314 @@
 - **Источники мониторинга:**
   - https://investors.carvana.com/news-releases
   - https://www.nasdaq.com/market-activity/stocks/cvna/press-releases
+
+<!-- Акции США — вечные фьючерсы МосБиржи на фиксинги иностранных акций, запуск 10/12/17.11.2026
+     (https://www.moex.com/n105658). Тикер — для сопоставления (совпадает с кодом и как алиас теряется),
+     CIK — лента SEC EDGAR; резервная лента Google News подключается автоматически.
+     Страницы nasdaq.com/…/press-releases не используются: отдают каркас без пресс-релизов. -->
+
+## INTC
+- **Базовый актив:** Акции Intel Corporation (INTC)
+- **Эмитент:** Intel Corporation
+- **Тикер:** INTC
+- **Алиасы:** Intel
+- **CIK:** `50863`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** INTCF (торги с 10.11.2026)
+- **Источники мониторинга:**
+  - https://www.intc.com/news-events/press-releases
+  - https://newsroom.intel.com/feed/
+
+## MSTR
+- **Базовый актив:** Акции Strategy Inc (MSTR)
+- **Эмитент:** Strategy Inc
+- **Тикер:** MSTR
+- **Алиасы:** MicroStrategy, Strategy Inc.
+- **CIK:** `1050446`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** MSTRF (торги с 10.11.2026)
+- **Источники мониторинга:**
+  - https://www.strategy.com/press
+
+## CRWV
+- **Базовый актив:** Акции CoreWeave, Inc. (CRWV)
+- **Эмитент:** CoreWeave, Inc.
+- **Тикер:** CRWV
+- **Алиасы:** CoreWeave
+- **CIK:** `1769628`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** CRWVF (торги с 10.11.2026)
+- **Источники мониторинга:**
+  - https://investors.coreweave.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+
+## CRCL
+- **Базовый актив:** Акции Circle Internet Group, Inc. (CRCL)
+- **Эмитент:** Circle Internet Group, Inc.
+- **Тикер:** CRCL
+- **Алиасы:** Circle Internet, Circle Internet Group
+- **CIK:** `1876042`
+- **Биржа первичного листинга:** NYSE
+- **Контракт МосБиржи:** CRCLF (торги с 10.11.2026)
+- **Источники мониторинга:**
+  - https://investor.circle.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+  - https://www.circle.com/pressroom
+
+## BE
+- **Базовый актив:** Акции Bloom Energy Corporation (BE)
+- **Эмитент:** Bloom Energy Corporation
+- **Тикер:** BE
+- **Алиасы:** Bloom Energy
+- **CIK:** `1664703`
+- **Биржа первичного листинга:** NYSE
+- **Контракт МосБиржи:** BEF (торги с 10.11.2026)
+- **Источники мониторинга:**
+  - https://investor.bloomenergy.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+
+## ARM
+- **Базовый актив:** Американские депозитарные расписки на акции Arm Holdings plc (ARM)
+- **Эмитент:** Arm Holdings plc
+- **Тикер:** ARM
+- **Алиасы:** Arm Holdings
+- **CIK:** `1973239`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** ARMF (торги с 10.11.2026)
+- **Источники мониторинга:**
+  - https://investors.arm.com/rss/news-releases.xml
+  - https://newsroom.arm.com/
+
+## MRNA
+- **Базовый актив:** Акции Moderna, Inc. (MRNA)
+- **Эмитент:** Moderna, Inc.
+- **Тикер:** MRNA
+- **Алиасы:** Moderna
+- **CIK:** `1682852`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** MRNAF (торги с 10.11.2026)
+- **Источники мониторинга:**
+  <!-- Официальная лента Moderna недоступна без JS (виджет QuoteMedia); news.modernatx.com/feed — архив до 05.2025. Покрытие: SEC EDGAR по CIK + Google News. -->
+
+## IREN
+- **Базовый актив:** Акции IREN Limited (IREN)
+- **Эмитент:** IREN Limited
+- **Тикер:** IREN
+- **Алиасы:** Iris Energy, IREN Ltd
+- **CIK:** `1878848`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** IRENF (торги с 10.11.2026)
+- **Источники мониторинга:**
+  - https://iren.gcs-web.com/rss/news-releases.xml
+
+## AAOI
+- **Базовый актив:** Акции Applied Optoelectronics, Inc. (AAOI)
+- **Эмитент:** Applied Optoelectronics, Inc.
+- **Тикер:** AAOI
+- **Алиасы:** Applied Optoelectronics
+- **CIK:** `1158114`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** AAOIF (торги с 10.11.2026)
+- **Источники мониторинга:**
+  - https://investors.ao-inc.com/news-releases
+
+## NOW
+- **Базовый актив:** Акции ServiceNow, Inc. (NOW)
+- **Эмитент:** ServiceNow, Inc.
+- **Тикер:** NOW
+- **Алиасы:** ServiceNow
+- **CIK:** `1373715`
+- **Биржа первичного листинга:** NYSE
+- **Контракт МосБиржи:** NOWF (торги с 12.11.2026)
+- **Источники мониторинга:**
+  - https://newsroom.servicenow.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+
+## ADBE
+- **Базовый актив:** Акции Adobe Inc. (ADBE)
+- **Эмитент:** Adobe Inc.
+- **Тикер:** ADBE
+- **Алиасы:** Adobe
+- **CIK:** `796343`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** ADBEF (торги с 12.11.2026)
+- **Источники мониторинга:**
+  - https://www.adobe.com/investor-relations.html
+
+## RDDT
+- **Базовый актив:** Акции Reddit, Inc. (RDDT)
+- **Эмитент:** Reddit, Inc.
+- **Тикер:** RDDT
+- **Алиасы:** Reddit
+- **CIK:** `1713445`
+- **Биржа первичного листинга:** NYSE
+- **Контракт МосБиржи:** RDDTF (торги с 12.11.2026)
+- **Источники мониторинга:**
+  - https://investor.redditinc.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+  - https://redditinc.com/news
+
+## CIEN
+- **Базовый актив:** Акции Ciena Corporation (CIEN)
+- **Эмитент:** Ciena Corporation
+- **Тикер:** CIEN
+- **Алиасы:** Ciena
+- **CIK:** `936395`
+- **Биржа первичного листинга:** NYSE
+- **Контракт МосБиржи:** CIENF (торги с 12.11.2026)
+- **Источники мониторинга:**
+  - https://investor.ciena.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+  - https://www.ciena.com/about/newsroom/press-releases
+
+## TEAM
+- **Базовый актив:** Акции Atlassian Corporation (TEAM)
+- **Эмитент:** Atlassian Corporation
+- **Тикер:** TEAM
+- **Алиасы:** Atlassian
+- **CIK:** `1650372`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** TEAMF (торги с 12.11.2026)
+- **Источники мониторинга:**
+  - https://investors.atlassian.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+
+## GTLB
+- **Базовый актив:** Акции GitLab Inc. (GTLB)
+- **Эмитент:** GitLab Inc.
+- **Тикер:** GTLB
+- **Алиасы:** GitLab
+- **CIK:** `1653482`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** GTLBF (торги с 12.11.2026)
+- **Источники мониторинга:**
+  - https://ir.gitlab.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+  - https://about.gitlab.com/press/releases/
+
+## SNOW
+- **Базовый актив:** Акции Snowflake Inc. (SNOW)
+- **Эмитент:** Snowflake Inc.
+- **Тикер:** SNOW
+- **Алиасы:** Snowflake
+- **CIK:** `1640147`
+- **Биржа первичного листинга:** NYSE
+- **Контракт МосБиржи:** SNOWF (торги с 12.11.2026)
+- **Источники мониторинга:**
+  - https://investors.snowflake.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+  - https://www.snowflake.com/en/news/press-releases/
+
+## CRDO
+- **Базовый актив:** Акции Credo Technology Group Holding Ltd (CRDO)
+- **Эмитент:** Credo Technology Group Holding Ltd
+- **Тикер:** CRDO
+- **Алиасы:** Credo Technology
+- **CIK:** `1807794`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** CRDOF (торги с 12.11.2026)
+- **Источники мониторинга:**
+  - https://investors.credosemi.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+
+## ALAB
+- **Базовый актив:** Акции Astera Labs, Inc. (ALAB)
+- **Эмитент:** Astera Labs, Inc.
+- **Тикер:** ALAB
+- **Алиасы:** Astera Labs
+- **CIK:** `1736297`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** ALABF (торги с 12.11.2026)
+- **Источники мониторинга:**
+  - https://ir.asteralabs.com/rss/news-releases.xml
+
+## SPOT
+- **Базовый актив:** Акции Spotify Technology S.A. (SPOT)
+- **Эмитент:** Spotify Technology S.A.
+- **Тикер:** SPOT
+- **Алиасы:** Spotify
+- **CIK:** `1639920`
+- **Биржа первичного листинга:** NYSE
+- **Контракт МосБиржи:** SPOTF (торги с 17.11.2026)
+- **Источники мониторинга:**
+  - https://investors.spotify.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+  - https://newsroom.spotify.com/feed/
+
+## TTWO
+- **Базовый актив:** Акции Take-Two Interactive Software, Inc. (TTWO)
+- **Эмитент:** Take-Two Interactive Software, Inc.
+- **Тикер:** TTWO
+- **Алиасы:** Take-Two Interactive, Take-Two
+- **CIK:** `946581`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** TTWOF (торги с 17.11.2026)
+- **Источники мониторинга:**
+  - https://ir.take2games.com/rss/news-releases.xml
+
+## U
+- **Базовый актив:** Акции Unity Software Inc. (U)
+- **Эмитент:** Unity Software Inc.
+- **Тикер:** U
+- **Алиасы:** Unity Software, Unity Technologies
+- **CIK:** `1810806`
+- **Биржа первичного листинга:** NYSE
+- **Контракт МосБиржи:** UF (торги с 17.11.2026)
+- **Источники мониторинга:**
+  - https://investors.unity.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+
+## DUOL
+- **Базовый актив:** Акции Duolingo, Inc. (DUOL)
+- **Эмитент:** Duolingo, Inc.
+- **Тикер:** DUOL
+- **Алиасы:** Duolingo
+- **CIK:** `1562088`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** DUOLF (торги с 17.11.2026)
+- **Источники мониторинга:**
+  - https://investors.duolingo.com/rss/news-releases.xml
+
+## BIIB
+- **Базовый актив:** Акции Biogen Inc. (BIIB)
+- **Эмитент:** Biogen Inc.
+- **Тикер:** BIIB
+- **Алиасы:** Biogen
+- **CIK:** `875045`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** BIIBF (торги с 17.11.2026)
+- **Источники мониторинга:**
+  - https://investors.biogen.com/rss/news-releases.xml
+
+## SHOP
+- **Базовый актив:** Акции Shopify Inc. (SHOP)
+- **Эмитент:** Shopify Inc.
+- **Тикер:** SHOP
+- **Алиасы:** Shopify
+- **CIK:** `1594805`
+- **Биржа первичного листинга:** NASDAQ, TSX
+- **Контракт МосБиржи:** SHOPF (торги с 17.11.2026)
+- **Источники мониторинга:**
+  - https://www.shopify.com/news
+
+## ABNB
+- **Базовый актив:** Акции Airbnb, Inc. (ABNB)
+- **Эмитент:** Airbnb, Inc.
+- **Тикер:** ABNB
+- **Алиасы:** Airbnb
+- **CIK:** `1559720`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** ABNBF (торги с 17.11.2026)
+- **Источники мониторинга:**
+  - https://investors.airbnb.com/rss/PressRelease.aspx?LanguageId=1&CategoryWorkflowId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&tags=
+  - https://news.airbnb.com/
+
+## DDOG
+- **Базовый актив:** Акции Datadog, Inc. (DDOG)
+- **Эмитент:** Datadog, Inc.
+- **Тикер:** DDOG
+- **Алиасы:** Datadog
+- **CIK:** `1561550`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** DDOGF (торги с 17.11.2026)
+- **Источники мониторинга:**
+  - https://investors.datadoghq.com/rss/news-releases.xml
+
+## ON
+- **Базовый актив:** Акции ON Semiconductor Corporation (ON)
+- **Эмитент:** ON Semiconductor Corporation
+- **Тикер:** ON
+- **Алиасы:** onsemi, ON Semiconductor
+- **CIK:** `1097864`
+- **Биржа первичного листинга:** NASDAQ
+- **Контракт МосБиржи:** ONF (торги с 17.11.2026)
+- **Источники мониторинга:**
+  - https://investor.onsemi.com/

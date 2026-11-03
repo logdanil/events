@@ -11,7 +11,7 @@ MD = ROOT / "underlyings_sources.md"
 def test_parse_real_file():
     assets = assets_sync.parse_underlyings_md(MD)
     codes = [a["code"] for a in assets]
-    assert len(assets) == 77  # 50 + 6 криптоиндексов + 21 акция США
+    assert len(assets) == 104  # 50 + 6 криптоиндексов + 21 акция США + 27 акций США (фьючерсы с 10–17.11.2026)
     assert "SPYF" in codes and "IBIT" in codes and "TSM" in codes and "BR, BRM" in codes
     spyf = next(a for a in assets if a["code"] == "SPYF")
     assert spyf["isin"] == "US78462F1030"
@@ -254,3 +254,57 @@ def test_backup_sources_keep_shared_google_news_feed(tmp_db):
                                                    "news_updated": 0}
     assert db.source_subscribers(db.get_asset("ALUM")["sources"][0]["id"]) == \
         ["ALUM", "COPPER", "NICKEL", "ZINC"]
+
+
+NEW_US_FUTURES = ("INTC MSTR CRWV CRCL BE ARM MRNA IREN AAOI NOW ADBE RDDT CIEN TEAM GTLB SNOW "
+                  "CRDO ALAB SPOT TTWO U DUOL BIIB SHOP ABNB DDOG ON").split()
+
+
+def test_new_us_futures_in_methodology():
+    """27 акций под новые вечные фьючерсы МосБиржи (moex.com/n105658): у каждой —
+    эмитент, тикер, CIK (лента SEC) и тип инструмента акции/АДР."""
+    parsed = {a["code"]: a for a in assets_sync.parse_underlyings_md(MD)}
+    for code in NEW_US_FUTURES:
+        item = parsed[code]
+        assert item["ticker"] == code and item["cik"] and item["issuer"], code
+        assert assets_sync.infer_instrument_type(item["name"]) == ("ADR" if code == "ARM" else "SHARE"), code
+        assert not any("nasdaq.com/market-activity" in u for u in item["sources"]), \
+            f"{code}: страницы nasdaq.com отдают каркас без пресс-релизов"
+    assert all(parsed[c]["sources"] for c in NEW_US_FUTURES if c != "MRNA")
+
+
+def test_ticker_field_sets_underlying_ticker(tmp_db, tmp_path):
+    """Тикер, равный коду актива, как алиас теряется — поле «Тикер» задаёт его напрямую."""
+    md = tmp_path / "u.md"
+    md.write_text("## NOW\n- **Базовый актив:** Акции ServiceNow, Inc. (NOW)\n"
+                  "- **Эмитент:** ServiceNow, Inc.\n- **Тикер:** NOW\n- **Алиасы:** ServiceNow\n"
+                  "- **CIK:** `1373715`\n- **Источники мониторинга:**\n"
+                  "  - https://newsroom.servicenow.com/rss/PressRelease.aspx?LanguageId=1\n", encoding="utf-8")
+    assets_sync.sync_from_md(md)
+    a = db.get_asset("NOW")
+    assert a["underlying_ticker"] == "NOW" and a["cik"] == "1373715"
+    q = assets_sync._news_query(a)
+    assert "%22ServiceNow%22" in q and "+OR+NOW+" not in q, "тикер-слово не попадает в запрос Google News"
+
+
+def test_word_tickers_of_new_us_futures(tmp_db):
+    from app import matcher
+    for code, name, alias in [("NOW", "ServiceNow, Inc.", "ServiceNow"), ("ON", "ON Semiconductor Corporation", "onsemi"),
+                              ("U", "Unity Software Inc.", "Unity Software"), ("SNOW", "Snowflake Inc.", "Snowflake"),
+                              ("SHOP", "Shopify Inc.", "Shopify"), ("ARM", "Arm Holdings plc", "Arm Holdings")]:
+        db.upsert_asset(code, f"Акции {name} ({code})", "SHARE", aliases=[alias])
+        db.set_asset_field(code, "issuer_name", name)
+        db.set_asset_field(code, "underlying_ticker", code)
+    profiles = matcher.build_profiles(db.list_assets(enabled_only=True))
+    for title in ["Shares of tech stocks are now trading lower after split announcement",
+                  "Heavy snow forces trading halt at regional exchange",
+                  "Shop closures: retailer announces bankruptcy",
+                  "Company's arm announces spin-off",
+                  "U.S. announces new dividend tax rules",
+                  "Investors should be on alert as the merger closes"]:
+        assert matcher.match_assets({"title": title, "text": ""}, profiles) == [], title
+    assert matcher.match_assets({"title": "ServiceNow (NYSE: NOW) declares special dividend", "text": ""},
+                                profiles) == ["NOW"]
+    res = matcher.match_publication({"title": "onsemi (Nasdaq: ON) announces share repurchase", "text": ""}, profiles)
+    assert res[0].asset_code == "ON" and res[0].confidence == "high", "явный «Nasdaq: ON» — полный вес"
+    assert matcher.match_assets({"title": "Unity Software Inc. announces merger", "text": ""}, profiles) == ["U"]

@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 from app import db
+from app.matcher import STRICT_TICKERS
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +30,8 @@ def parse_underlyings_md(path: str | Path) -> list[dict]:
         m = _SECTION_RE.match(line)
         if m:
             current = {"code": m.group("code").strip(), "name": "", "isin": None,
-                       "exchange": None, "sources": [], "cik": None, "issuer": None, "aliases": []}
+                       "exchange": None, "sources": [], "cik": None, "issuer": None, "aliases": [],
+                       "ticker": None}
             assets.append(current)
             continue
         if current is None:
@@ -47,6 +49,8 @@ def parse_underlyings_md(path: str | Path) -> list[dict]:
                 current["cik"] = value.strip("`").strip() or None
             elif key == "эмитент":
                 current["issuer"] = value or None
+            elif key == "тикер":
+                current["ticker"] = value.strip("`").strip().upper() or None
             elif key == "алиасы":
                 current["aliases"] = [a.strip() for a in value.split(",") if a.strip()]
             continue
@@ -178,6 +182,10 @@ def sync_from_md(path: str | Path) -> dict:
             db.set_asset_field(code, "cik", item["cik"])
         if item.get("issuer") and not (asset or {}).get("issuer_name"):
             db.set_asset_field(code, "issuer_name", item["issuer"])
+        # Биржевой тикер акции. Как алиас он теряется, если совпадает с кодом актива
+        # (UNIQUE NOCASE против записи kind='code'), поэтому задаётся отдельным полем.
+        if item.get("ticker") and not (db.get_asset(code) or {}).get("underlying_ticker"):
+            db.set_asset_field(code, "underlying_ticker", item["ticker"])
         for extra in item.get("aliases", []):
             if db.add_alias(code, extra):
                 report["aliases_added"].append(f"{code}:{extra}")
@@ -247,7 +255,14 @@ def _news_query(asset: dict) -> str:
         return quote_plus(f"{short} futures {_COMMODITY_TERMS}")
     parts = [f'"{name}"']
     ticker = asset.get("underlying_ticker")
-    if ticker and len(ticker) >= 3:
+    if ticker and ticker.lower() in STRICT_TICKERS:
+        # Тикер-слово (NOW, SNOW, SHOP, COIN…) засоряет выдачу посторонними новостями —
+        # вместо него ищем по короткому имени компании (первый алиас).
+        alias = next((a for a in asset.get("aliases", []) if len(a) >= 4
+                      and a.lower() != ticker.lower() and "(" not in a), None)
+        if alias:
+            parts.append(f'"{alias}"')
+    elif ticker and len(ticker) >= 3:
         parts.append(ticker)
     return quote_plus(" OR ".join(parts) + " " + _CORP_TERMS)
 

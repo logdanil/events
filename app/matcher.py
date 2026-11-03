@@ -65,7 +65,8 @@ TICKER_CONTEXT_WORDS = {"etf", "fund", "trust", "shares", "ticker", "symbol", "n
 
 # Тикеры, совпадающие с обычными словами: засчитываются только в скобках «(COIN)»,
 # после «NASDAQ:/NYSE:/ticker/symbol» либо на своей странице — общий контекст не спасает.
-STRICT_TICKERS = {"coin", "app", "dash", "lite", "hood", "uber", "cmg", "lulu", "spcx"}
+STRICT_TICKERS = {"coin", "app", "dash", "lite", "hood", "uber", "cmg", "lulu", "spcx",
+                  "on", "u", "be", "now", "arm", "team", "snow", "spot", "shop"}
 _TICKER_PREFIX_RE = r"(?:nasdaq|nyse|ticker|symbol|тикер)\s*:?\s*"
 
 # Рутинные формы SEC, которые корпоративным событием не бывают (сделки инсайдеров,
@@ -354,6 +355,8 @@ def match_one(pub: dict, profile: AssetProfile) -> MatchResult:
             continue
         parenthesized = re.search(rf"\({re.escape(ticker)}\)", text) is not None \
             or re.search(_TICKER_PREFIX_RE + re.escape(ticker) + r"(?!\w)", text) is not None
+        # «NASDAQ: ON», «NYSE: U» — однозначная ссылка на бумагу при любой длине тикера.
+        prefixed = re.search(_TICKER_PREFIX_RE + re.escape(ticker) + r"(?!\w)", text) is not None
         strict = ticker in STRICT_TICKERS
         context = parenthesized or owned or bool(matched_terms) or (has_context and not strict)
         if strict and not context:
@@ -363,7 +366,7 @@ def match_one(pub: dict, profile: AssetProfile) -> MatchResult:
             rejected_terms.append(ticker)
             continue
         if context:
-            signals.append(W_TICKER_CTX if len(ticker) >= 3 else W_MID_ALIAS)
+            signals.append(W_TICKER_CTX if len(ticker) >= 3 or prefixed else W_MID_ALIAS)
             matched_by.append("ticker_with_context")
         else:
             signals.append(W_TICKER_BARE)
