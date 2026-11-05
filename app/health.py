@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app import db
+from app.config import redact
 
 log = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ def _now() -> str:
 def report(component: str, key: str, message: str, severity: str = "warning") -> dict | None:
     """Зарегистрировать проблему. Возвращает описание оповещения, если его пора
     отправить (новый инцидент или истёк cooldown), иначе None."""
+    message = redact(message)
     with db.connect() as conn:
         row = conn.execute("SELECT * FROM health_incidents WHERE component=? AND key=?",
                            (component, key)).fetchone()

@@ -24,12 +24,24 @@ from app.bot import (
     add_email, remove_email, emails, test_email_cmd, export_recipients, import_users,
     sources_cmd, disable_source,
 )
-from app.config import settings
+from app.config import redact, settings
 from app.formatters import MSK
 from app.monitor import MIN_CONFIDENCE, Monitor, ScanStats, classification_ok, _normalize_event
 from app.retry import with_retries
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+
+class _RedactingFormatter(logging.Formatter):
+    """Маскирует секреты во всём выводе лога, включая traceback и тексты исключений
+    (URL запросов, ответы API)."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return redact(super().format(record))
+
+
+for _handler in logging.getLogger().handlers:
+    _handler.setFormatter(_RedactingFormatter(_handler.formatter._fmt if _handler.formatter else None))
 # httpx пишет каждый запрос (getUpdates раз в 10 с) вместе с токеном бота в URL —
 # шум в логах и утечка секрета; оставляем только предупреждения.
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -603,10 +615,7 @@ async def test_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 def _redact(text: str) -> str:
-    for secret in (settings.tavily_api_key, settings.google_api_key, settings.telegram_bot_token):
-        if secret:
-            text = text.replace(secret, "***")
-    return text
+    return redact(text)
 
 
 async def _say(message, text: str) -> None:
