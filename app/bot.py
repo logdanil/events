@@ -984,7 +984,7 @@ async def rematch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for row in rows:
         pub = {"url": row["url"], "title": row["title"] or "", "text": row["text"] or "",
                "subscribers": []}
-        if not matcher.has_corporate_keywords(pub):
+        if not matcher.keyword_gate(pub, profiles):
             continue  # статус не трогаем: keyword-фильтр не менялся
         keyword_pass += 1
         if target_profile is not None:

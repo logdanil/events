@@ -688,7 +688,7 @@ async def debug_scan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 cached += 1
                 continue
             fresh.append({**p, "url_hash": uh, "title_hash": th})
-        keyword_pass = [p for p in fresh if matcher.has_corporate_keywords(p)]
+        keyword_pass = [p for p in fresh if matcher.keyword_gate(p, profiles)]
         scored = []
         for p in keyword_pass:
             results = matcher.match_publication(p, profiles)

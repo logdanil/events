@@ -49,7 +49,7 @@ def parse_feed(content: bytes | str, source: dict) -> list[dict]:
         title = (entry.get("title") or "").strip()
         if not url or not title:
             continue
-        summary = (entry.get("summary") or entry.get("description") or "")
+        summary = fetcher.plain_text(entry.get("summary") or entry.get("description") or "")
         published_at, published_dt = _entry_published(entry)
         pub = {
             "url": url,

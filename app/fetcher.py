@@ -8,14 +8,29 @@ SEC всегда ходит через httpx с контактным User-Agent 
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 import random
+import re
 
 import httpx
 
 from app.config import settings
 
 log = logging.getLogger(__name__)
+
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def plain_text(text: str | None) -> str:
+    """HTML-описание из ленты → обычный текст. Описание Google News — это ссылка
+    с base64-адресом: без очистки она съедает токены модели и даёт ложные
+    совпадения ключевых слов («adr» внутри base64)."""
+    if not text:
+        return ""
+    if "<" in text or "&" in text:
+        text = html.unescape(_TAG_RE.sub(" ", text))
+    return re.sub(r"\s+", " ", text).strip()
 
 BLOCK_CODES = {403, 429, 406}
 

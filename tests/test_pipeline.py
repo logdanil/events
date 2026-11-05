@@ -64,6 +64,87 @@ def test_keyword_filter():
     assert not matcher.has_corporate_keywords({"title": "Stock rises 3% on earnings beat rumors", "text": ""})
 
 
+def test_keyword_filter_whole_words_not_substrings():
+    """«isin» внутри rising/advertising, «adr» внутри quadrant — не признаки события."""
+    for title in ("Shares keep rising on advertising and fundraising news",
+                  "Quadrant analysis: Hadrian's view of the market"):
+        assert not matcher.has_corporate_keywords({"title": title, "text": ""}), title
+    for title in ("Company announces ISIN change for its ADRs",
+                  "Uber to acquire ezCater for $2.3 billion",
+                  "Uber is acquiring ezCater", "Nebius acquires Inferize",
+                  "Board approves stock splitting plan", "Shares delisted from NYSE",
+                  "SK Hynix unveils $72.5 billion shareholder return plan",
+                  "Банк объявил о дроблении акций"):
+        assert matcher.has_corporate_keywords({"title": title, "text": ""}), title
+
+
+def test_keyword_filter_ignores_google_news_html():
+    """Описание Google News — ссылка с base64-адресом: в ней «adr», «13d» и т.п.
+    встречаются случайно и не должны пропускать публикацию в LLM."""
+    text = ('<a href="https://news.google.com/rss/articles/CBMiADRx13dISINq?oc=5" target="_blank">'
+            'Stock gains on strong demand</a>&nbsp;&nbsp;<font color="#6f6f6f">Reuters</font>')
+    assert not matcher.has_corporate_keywords({"title": "Stock gains on strong demand", "text": text})
+
+
+def test_keyword_gate_asset_type_words(tmp_db):
+    """upgrade/burn — признак события только для криптоактива и только в заголовке."""
+    db.upsert_asset("ETH", "Индекс МосБиржи Эфира (MOEXETH)", "CRYPTO", aliases=["Ethereum"])
+    db.upsert_asset("TSLA", "Акции Tesla, Inc. (TSLA)", "SHARE", aliases=["Tesla"])
+    db.set_asset_field("TSLA", "issuer_name", "Tesla, Inc.")
+    profiles = matcher.build_profiles(db.list_assets(enabled_only=True))
+    crypto = {"title": "Ethereum's Glamsterdam upgrade activates on mainnet in December", "text": ""}
+    assert not matcher.has_corporate_keywords({"title": "Ethereum's Glamsterdam upgrade goes live",
+                                               "text": ""})
+    assert matcher.keyword_gate(crypto, profiles)
+    assert matcher.keyword_gate({"title": "Ethereum's Glamsterdam upgrade goes live", "text": ""}, profiles)
+    assert not matcher.keyword_gate({"title": "Analyst upgrade sends Tesla shares higher", "text": ""},
+                                    profiles)
+    assert not matcher.keyword_gate({"title": "Ethereum price outlook",
+                                     "text": "developers discuss the upgrade"}, profiles)
+
+
+def test_keyword_gate_used_by_filter(tmp_db):
+    db.upsert_asset("SOL", "Индекс МосБиржи Соланы (MOEXSOL)", "CRYPTO", aliases=["Solana"])
+    db.set_asset_field("SOL", "issuer_name", "Solana")
+    profiles = matcher.build_profiles(db.list_assets(enabled_only=True))
+    pubs = [{"url": "https://ex.com/sol", "title": "Solana's Alpenglow upgrade goes live",
+             "text": "", "published_at": None, "published_dt": None, "source": "s",
+             "subscribers": []}]
+    kept = matcher.filter_publications(pubs, profiles, lookback_days=3, stats=ScanStats())
+    assert [k["asset_codes"] for k in kept] == [["SOL"]]
+
+
+def test_rss_description_html_is_cleaned():
+    feed = """<?xml version="1.0"?><rss version="2.0"><channel><title>GN</title>
+    <item><title>Tesla announces stock split - Reuters</title>
+    <link>https://news.google.com/rss/articles/CBMiXYZ?oc=5</link>
+    <description>&lt;a href="https://news.google.com/rss/articles/CBMiXYZ?oc=5"&gt;Tesla announces stock split&lt;/a&gt;&amp;nbsp;&amp;nbsp;&lt;font color="#6f6f6f"&gt;Reuters&lt;/font&gt;</description>
+    </item></channel></rss>"""
+    source = {"id": 3, "name": "GN", "type": "NEWS", "url": "https://news.google.com/rss", "subscribers": []}
+    pub = rss_monitor.parse_feed(feed, source)[0]
+    assert pub["text"] == "Tesla announces stock split Reuters"
+
+
+def test_prompt_item_drops_noise():
+    from app.llm import prompt_item
+    gn = prompt_item({"index": 0, "asset": "TSLA — Tesla", "title": "Tesla announces stock split - Reuters",
+                      "url": "https://news.google.com/rss/articles/CBMiXYZ?oc=5",
+                      "text": '<a href="https://news.google.com/rss/articles/CBMiXYZ">Tesla announces '
+                              'stock split</a>&nbsp;<font>Reuters</font>', "source": "GN"})
+    assert "url" not in gn and "text" not in gn
+    assert gn["title"] == "Tesla announces stock split - Reuters" and gn["asset"] == "TSLA — Tesla"
+    ir = prompt_item({"index": 1, "title": "Board approves split", "url": "https://ir.tesla.com/press/1",
+                      "text": "<p>The board approved a <b>3-for-1</b> split.</p>"})
+    assert ir["url"] == "https://ir.tesla.com/press/1"
+    assert ir["text"] == "The board approved a 3-for-1 split."
+
+
+def test_prompt_requests_short_answer_for_non_events():
+    from app import llm
+    assert "Полный объект — при is_event=true" in llm.PROMPT_HEADER
+    assert "Формат ответа на решение не влияет" in llm.PROMPT_HEADER
+
+
 def test_match_assets_by_name_and_alias():
     profiles = matcher.build_profiles(_assets())
     pub = {"title": "Alibaba Group Holding announces tender offer", "text": ""}

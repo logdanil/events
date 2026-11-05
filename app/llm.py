@@ -11,10 +11,12 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 
 import httpx
 
 from app.config import settings
+from app.fetcher import plain_text
 from app.retry import with_retries
 
 log = logging.getLogger(__name__)
@@ -40,6 +42,28 @@ MODEL_PRICES = {
 }
 
 MAX_TEXT_CHARS = 1200  # полный текст статьи в модель никогда не отправляется
+
+# Адрес Google News — непрозрачный base64-редирект без информации для модели
+# (~100 токенов на публикацию); издание уже указано в заголовке и в source.
+_OPAQUE_URL_HOSTS = ("news.google.com",)
+_WORDS_RE = re.compile(r"\w+", re.UNICODE)
+
+
+def prompt_item(it: dict) -> dict:
+    """Публикация для промпта: без HTML, без дубля заголовка в тексте
+    (описание Google News = заголовок + издание) и без непрозрачных адресов."""
+    title = (it.get("title") or "")[:300]
+    text = plain_text(it.get("text"))[:MAX_TEXT_CHARS]
+    if text and set(_WORDS_RE.findall(text.lower())) <= set(_WORDS_RE.findall(title.lower())):
+        text = ""
+    url = it.get("url") or ""
+    item = {"index": it["index"], "asset": it.get("asset"), "title": title,
+            "date": it.get("published_at"), "source": it.get("source")}
+    if url and urlsplit(url).hostname not in _OPAQUE_URL_HOSTS:
+        item["url"] = url
+    if text:
+        item["text"] = text
+    return item
 
 PROMPT_HEADER = """Классифицируй публикации о корпоративных событиях. Только классификация, никакого оформления.
 У каждой публикации указано поле "asset" — один или несколько активов-кандидатов ("КОД — название; КОД — название").
@@ -81,6 +105,11 @@ is_event=false обязательно, если:
 - изменение долей инвесторов/фондов в бумаге (13F, "stake boosted/increased/trimmed", позиции управляющих);
 - движение цены, аналитика, прогнозы, рекомендации, обзор рынка, обычная квартальная отчётность;
 - для ETF: новости об отдельных компаниях из состава фонда или об индексе — не события самого ETF.
+Формат ответа на решение не влияет: сначала реши about_asset и is_event по правилам выше.
+Полный объект — при is_event=true. При is_event=false (в том числе при about_asset=false)
+верни короткий объект без остальных полей:
+{"index": <номер>, "asset_code": "<КОД или null>", "about_asset": true|false, "is_event": false,
+ "event_type": "<из списка ниже>", "summary": "суть по-русски, одно короткое предложение"}
 Допустимые event_type: """ + ", ".join(EVENT_TYPES) + "\nПубликации:\n"
 
 
@@ -142,18 +171,8 @@ class GeminiProvider(LLMProvider):
         return input_tokens / 1e6 * price_in + output_tokens / 1e6 * price_out
 
     def _build_prompt(self, items: list[dict]) -> str:
-        lines = []
-        for it in items:
-            lines.append(json.dumps({
-                "index": it["index"],
-                "asset": it.get("asset"),
-                "title": (it.get("title") or "")[:300],
-                "date": it.get("published_at"),
-                "source": it.get("source"),
-                "url": it.get("url"),
-                "text": (it.get("text") or "")[:MAX_TEXT_CHARS],
-            }, ensure_ascii=False))
-        return PROMPT_HEADER + "\n".join(lines)
+        return PROMPT_HEADER + "\n".join(
+            json.dumps(prompt_item(it), ensure_ascii=False) for it in items)
 
     async def classify_batch(self, items: list[dict]) -> tuple[list[dict], LLMUsage]:
         if not items:

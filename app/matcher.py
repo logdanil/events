@@ -22,14 +22,19 @@ from datetime import datetime, timedelta, timezone
 from rapidfuzz import fuzz
 
 from app import db
+from app.fetcher import plain_text
 from app.versions import MATCHER_VERSION  # noqa: F401  (реэкспорт для остальных модулей)
 
 log = logging.getLogger(__name__)
 
 # Признаки корпоративного события. Публикация без единого совпадения в LLM не отправляется.
+# Сопоставляются целые слова (с английскими словоформами: acquire → acquires/acquired/
+# acquiring), русские — как основы слов. Подстрока не годится: «isin» ловило
+# rising/advertising, «adr» — quadrant и base64-адреса Google News.
 CORPORATE_KEYWORDS = [
     "split", "reverse split", "dividend", "special dividend", "record date", "ex-date",
-    "ex date", "spin-off", "spinoff", "merger", "acquisition", "rights issue",
+    "ex date", "spin-off", "spinoff", "merger", "acquisition", "acquire", "rights issue",
+    "shareholder return", "funding round",
     "adr", "isin", "cusip", "symbol change", "ticker change", "bankruptcy", "liquidation",
     "rebalance", "index change", "listing", "delisting", "contract specification",
     "trading suspension", "trading halt", "shareholder meeting", "sec filing",
@@ -54,6 +59,35 @@ CORPORATE_KEYWORDS = [
     "exchange notice", "notice to members", "лимит позиц", "ценовой лимит",
     "часы торгов", "последний день торгов", "новый контракт",
 ]
+
+# Слова, которые для акций слишком общие («analyst upgrade», «cash burn»), но для своего
+# типа актива означают событие: обновление сети, сжигание токенов, остановка вывода
+# на бирже, склады LME. Засчитываются только в заголовке и только если публикация
+# уверенно (high/medium) сопоставлена с активом этого типа.
+ASSET_TYPE_KEYWORDS = {
+    "CRYPTO": ["upgrade", "activation", "burn", "withdrawal"],
+    "ASSET": ["warehouse"],
+}
+
+
+def _keyword_pattern(keyword: str) -> str:
+    stem = re.escape(keyword)
+    if re.search(r"[а-яё]", keyword):
+        return rf"(?<!\w){stem}"
+    forms = [stem + r"(?:s|es|d|ed|ing)?"]
+    if keyword.endswith("e"):
+        forms.append(re.escape(keyword[:-1]) + "ing")
+    if re.search(r"[^aeiou][aeiou][bdgklmnprt]$", keyword):
+        forms.append(stem + re.escape(keyword[-1]) + "(?:ing|ed)")   # split → splitting
+    return rf"(?<!\w)(?:{'|'.join(forms)})(?!\w)"
+
+
+def _keywords_re(keywords: list[str]) -> re.Pattern:
+    return re.compile("|".join(_keyword_pattern(k) for k in keywords))
+
+
+_CORPORATE_RE = _keywords_re(CORPORATE_KEYWORDS)
+_ASSET_TYPE_RES = {t: _keywords_re(ks) for t, ks in ASSET_TYPE_KEYWORDS.items()}
 
 # Контекст, легализующий короткий/неоднозначный тикер (SPY, EM, GOLD, DAX…).
 TICKER_CONTEXT_WORDS = {"etf", "fund", "trust", "shares", "ticker", "symbol", "nyse",
@@ -135,8 +169,22 @@ def title_hash(title: str) -> str | None:
 
 
 def has_corporate_keywords(publication: dict) -> bool:
-    text = f"{publication.get('title', '')} {publication.get('text', '')}".lower()
-    return any(k in text for k in CORPORATE_KEYWORDS)
+    text = plain_text(f"{publication.get('title', '')} {publication.get('text', '')}").lower()
+    return _CORPORATE_RE.search(text) is not None
+
+
+def keyword_gate(publication: dict, profiles: list["AssetProfile"]) -> bool:
+    """Keyword-фильтр перед LLM: общие признаки события либо слово своего типа
+    актива в заголовке при уверенном сопоставлении с активом этого типа."""
+    if has_corporate_keywords(publication):
+        return True
+    title = plain_text(publication.get("title")).lower()
+    types = {t for t, rx in _ASSET_TYPE_RES.items() if rx.search(title)}
+    if not types:
+        return False
+    by_code = {p.code: p.instrument_type for p in profiles}
+    return any(r.confidence in ("high", "medium") and by_code.get(r.asset_code) in types
+               for r in match_publication(publication, profiles))
 
 
 def _norm(text: str) -> str:
@@ -497,7 +545,7 @@ def filter_publications(publications: list[dict], profiles: list[AssetProfile],
                                 status="keyword_filtered", title=p.get("title"),
                                 source_id=p.get("source_id"))
             continue
-        if not is_regulatory and not has_corporate_keywords(p):
+        if not is_regulatory and not keyword_gate(p, profiles):
             db.remember_article(p.get("url", ""), uh, th, p.get("published_at"),
                                 p.get("source"), "skipped:no_keywords",
                                 status="keyword_filtered", title=p.get("title"),
