@@ -217,3 +217,48 @@ def test_news_aggregator_without_company_name_is_not_owned():
 def test_cjk_keywords_do_not_change_latin_matching():
     assert not matcher.has_corporate_keywords({"title": "Toyota unveils new hybrid model", "text": ""})
     assert matcher.has_corporate_keywords({"title": "Toyota announces share buyback", "text": ""})
+
+
+def test_regulatory_filings_with_identical_titles_are_not_deduplicated(tmp_db):
+    """Регресс: персональная лента SEC отдаёт все 6-K с одинаковым заголовком —
+    второй и последующие отчёты не должны считаться дублями первого."""
+    from datetime import datetime, timezone
+    profiles = matcher.build_profiles([
+        {"code": "TOYOTA", "name": "Toyota Motor Corporation", "instrument_type": "ADR",
+         "cik": "1094517", "aliases": []}])
+    now = datetime.now(timezone.utc)
+
+    def filing(n):
+        return {"url": f"https://www.sec.gov/Archives/edgar/data/1094517/{n}-index.htm",
+                "title": "6-K  - Report of foreign issuer [Rules 13a-16 and 15d-16]", "text": "",
+                "published_dt": now, "source_type": "SEC", "sec_cik": "1094517",
+                "form_type": "6-K", "subscribers": ["TOYOTA"]}
+
+    first = matcher.filter_publications([filing(1)], profiles, 3)
+    assert len(first) == 1
+    for p in first:
+        db.remember_article(p["url"], p["url_hash"], p["title_hash"], None, "sec.gov",
+                            "event", status="llm_analyzed", title=p["title"])
+    later = matcher.filter_publications([filing(2), filing(3)], profiles, 3)
+    assert [p["url"] for p in later] == [filing(2)["url"], filing(3)["url"]]
+
+
+def test_exchange_disclosures_with_repeated_titles_are_kept(tmp_db):
+    from datetime import datetime, timezone
+    profiles = _asian_profiles()
+    now = datetime.now(timezone.utc)
+    title = "トヨタ自:自己株式の取得状況に関するお知らせ"
+    pubs = [{"url": f"https://webapi.yanoshin.jp/rd.php?https://www.release.tdnet.info/inbs/{n}.pdf",
+             "title": title, "text": "", "published_dt": now, "source_type": "EXCHANGE",
+             "subscribers": ["TOYOTA"]} for n in (1, 2)]
+    assert len(matcher.filter_publications(pubs, profiles, 3)) == 2
+
+
+def test_news_retellings_still_deduplicated_by_title(tmp_db):
+    from datetime import datetime, timezone
+    profiles = _asian_profiles()
+    now = datetime.now(timezone.utc)
+    pubs = [{"url": f"https://news{n}.example.com/a", "published_dt": now, "text": "",
+             "title": "Samsung Electronics announces share buyback", "source_type": "NEWS",
+             "subscribers": ["SAMSUNG"]} for n in (1, 2)]
+    assert len(matcher.filter_publications(pubs, profiles, 3)) == 1

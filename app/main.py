@@ -689,7 +689,7 @@ async def debug_scan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         fresh, cached = [], 0
         seen_urls: set[str] = set()
         for p in publications:
-            uh, th = matcher.url_hash(p.get("url", "")), matcher.title_hash(p.get("title", ""))
+            uh, th = matcher.url_hash(p.get("url", "")), matcher.publication_title_hash(p)
             if uh in seen_urls:
                 continue
             seen_urls.add(uh)

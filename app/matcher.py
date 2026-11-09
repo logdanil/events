@@ -182,6 +182,20 @@ def title_hash(title: str) -> str | None:
     return hashlib.sha256(" ".join(words).encode("utf-8")).hexdigest()
 
 
+# Ленты регуляторов и бирж: один и тот же заголовок — разные документы
+# («6-K - Report of foreign issuer», ежемесячный отчёт о выкупе DART/TDnet).
+_URL_IDENTIFIED_SOURCE_TYPES = {"SEC", "EXCHANGE"}
+
+
+def publication_title_hash(pub: dict) -> str | None:
+    """Хэш заголовка для дедупликации пересказов; None, если документ однозначно
+    определяется только своим URL (регуляторный филинг, биржевое раскрытие)."""
+    if (pub.get("source_type") in _URL_IDENTIFIED_SOURCE_TYPES
+            or pub.get("sec_cik") or pub.get("sec_filer") or pub.get("form_type")):
+        return None
+    return title_hash(pub.get("title", ""))
+
+
 def has_corporate_keywords(publication: dict) -> bool:
     text = plain_text(f"{publication.get('title', '')} {publication.get('text', '')}").lower()
     return _CORPORATE_RE.search(text) is not None
@@ -534,7 +548,7 @@ def filter_publications(publications: list[dict], profiles: list[AssetProfile],
     seen_titles: set[str] = set()
     kept: list[dict] = []
     for p in publications:
-        uh, th = url_hash(p.get("url", "")), title_hash(p.get("title", ""))
+        uh, th = url_hash(p.get("url", "")), publication_title_hash(p)
         if uh in seen_urls or (th and th in seen_titles):
             continue
         seen_urls.add(uh)
