@@ -89,31 +89,47 @@ def _fetch_impersonated(url: str) -> bytes:
     """Синхронный запрос с TLS-отпечатком браузера; перебирает несколько браузеров,
     потому что защита у каждого сайта пропускает разные (выполняется в отдельном потоке)."""
     from curl_cffi import requests as curl_requests
+    from curl_cffi.requests.exceptions import RequestException
+
     last_status = None
+    last_error = None
+    attempts = []
     for browser in IMPERSONATE_CHAIN:
+        response = None
         try:
             response = curl_requests.get(url, impersonate=browser, timeout=30,
                                          allow_redirects=True, stream=True)
-        except Exception:
-            continue
-        try:
             if response.status_code < 400:
-                if browser != IMPERSONATE_CHAIN[0]:
-                    log.info("Источник %s открылся под %s", url, browser)
                 chunks, size = [], 0
                 for chunk in response.iter_content():
                     chunks.append(chunk)
                     size += len(chunk)
                     if size >= MAX_RESPONSE_BYTES:
                         break
+                if browser != IMPERSONATE_CHAIN[0]:
+                    log.info("Источник %s открылся под %s", url, browser)
                 return b"".join(chunks)[:MAX_RESPONSE_BYTES]
             last_status = response.status_code
+            last_error = None
+            attempts.append(f"{browser}=HTTP {last_status}")
+        except RequestException as exc:
+            last_status = None
+            last_error = exc
+            attempts.append(f"{browser}={type(exc).__name__}")
+            log.warning("Источник %s, TLS %s: %s: %s",
+                        url, browser, type(exc).__name__, exc)
         finally:
-            response.close()
+            if response is not None:
+                response.close()
+    request = httpx.Request("GET", url)
+    details = f"TLS: {', '.join(attempts)}; URL: {url}"
+    if last_status is None:
+        raise httpx.RequestError(
+            f"{details}; {last_error}", request=request) from last_error
     raise httpx.HTTPStatusError(
-        f"Client error '{last_status or 'timeout'}' for url '{url}' (все отпечатки: {', '.join(IMPERSONATE_CHAIN)})",
-        request=httpx.Request("GET", url),
-        response=httpx.Response(last_status or 599, request=httpx.Request("GET", url)))
+        f"HTTP {last_status}; {details}",
+        request=request,
+        response=httpx.Response(last_status, request=request)) from last_error
 
 
 async def fetch(client: httpx.AsyncClient, source: dict) -> bytes:

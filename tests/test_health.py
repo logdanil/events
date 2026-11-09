@@ -87,6 +87,33 @@ def test_health_report_and_format(tmp_db):
     assert "×3" in health.format_alert(alert)
 
 
+def test_health_report_keeps_source_error_details(tmp_db):
+    db.upsert_asset("SAMSUNG", "Samsung Electronics", "SHARE")
+    url = "https://news.samsung.com/global/feed"
+    db.add_source("SAMSUNG", url)
+    source = next(s for s in db.list_source_defs() if s["url"] == url)
+    error = ("HTTPStatusError: HTTP 403; "
+             "TLS: chrome=HTTP 403, safari=HTTP 403, firefox135=HTTP 403; "
+             f"URL: {url}")
+    for _ in range(health.SOURCE_FAIL_THRESHOLD):
+        health.check_source(source, error)
+    text = health.format_health_report(60)
+    assert error in text
+    assert "Активы: SAMSUNG" in text
+
+
+def test_health_formatters_escape_dynamic_html(tmp_db):
+    message = "Ошибка <feed> & URL ?a=1&b=2"
+    alert = health.report("source", "source:999", message)
+    assert alert is not None
+    escaped = "Ошибка &lt;feed&gt; &amp; URL ?a=1&amp;b=2"
+    assert escaped in health.format_alert(alert)
+    assert escaped in health.format_health_report(60)
+    resolved = health.resolve("source", "source:999")
+    assert resolved is not None
+    assert escaped in health.format_resolved(resolved)
+
+
 @pytest.mark.asyncio
 async def test_export_import_recipients(tmp_db):
     db.add_subscriber(555, "Иван Петров")

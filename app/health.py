@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from html import escape
 from typing import Any
 
 from app import db
@@ -165,7 +166,7 @@ def check_source(source: dict, error: str | None) -> dict | None:
         subscribers = ", ".join(source.get("subscribers") or []) or "глобальный"
         return report("source", key,
                       f"Источник «{source['name']}» недоступен {streak} проверок подряд "
-                      f"({error[:120]}). Активы: {subscribers}. URL: {source['url']}",
+                      f"({error[:300]}). Активы: {subscribers}. URL: {source['url']}",
                       severity="warning")
     return None
 
@@ -453,12 +454,12 @@ def check_llm_health(ok: bool, error: str | None = None) -> dict | None:
 def format_alert(alert: dict) -> str:
     emoji = SEVERITY_EMOJI.get(alert.get("severity"), "⚠️")
     head = "Новая проблема" if alert.get("new") else f"Проблема сохраняется (×{alert.get('occurrences', 1)})"
-    return (f"{emoji} <b>{head}: {alert['component']}</b>\n{alert['message']}\n\n"
+    return (f"{emoji} <b>{head}: {escape(alert['component'])}</b>\n{escape(alert['message'])}\n\n"
             f"Все открытые проблемы: /health")
 
 
 def format_resolved(info: dict) -> str:
-    return f"✅ <b>Восстановлено: {info['component']}</b>\n{info['message'][:200]}"
+    return f"✅ <b>Восстановлено: {escape(info['component'])}</b>\n{escape(info['message'][:200])}"
 
 
 def format_health_report(interval_minutes: int) -> str:
@@ -484,6 +485,6 @@ def format_health_report(interval_minutes: int) -> str:
         lines.append(f"<b>Открытые проблемы ({len(incidents)}):</b>")
         for i in incidents[:15]:
             emoji = SEVERITY_EMOJI.get(i["severity"], "⚠️")
-            lines.append(f"{emoji} [{i['component']}] {i['message'][:160]}"
+            lines.append(f"{emoji} [{escape(i['component'])}] {escape(i['message'])}"
                          f"\n   с {i['first_seen']} UTC, повторов: {i['occurrences']}")
     return "\n".join(lines)

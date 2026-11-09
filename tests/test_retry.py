@@ -113,3 +113,85 @@ async def test_fetch_truncates_huge_response(monkeypatch):
                                               "url": "https://big.example.com/"})
     assert len(body) == 1000
     assert served["chunks"] == 10  # остальные 90 чанков не запрашивались
+
+
+def test_impersonated_reports_each_browser_status(monkeypatch):
+    from unittest.mock import Mock
+
+    from curl_cffi import requests
+    from app import fetcher
+
+    responses = [Mock(status_code=403), Mock(status_code=429), Mock(status_code=403)]
+    monkeypatch.setattr(requests, "get", Mock(side_effect=responses))
+    with pytest.raises(httpx.HTTPStatusError) as caught:
+        fetcher._fetch_impersonated("https://news.samsung.com/global/feed")
+    assert caught.value.response.status_code == 403
+    for browser, status in zip(fetcher.IMPERSONATE_CHAIN, (403, 429, 403)):
+        assert f"{browser}=HTTP {status}" in str(caught.value)
+    for response in responses:
+        response.close.assert_called_once()
+
+
+def test_impersonated_transport_errors_are_not_http_statuses(monkeypatch):
+    from unittest.mock import Mock
+
+    from curl_cffi import requests
+    from curl_cffi.requests.exceptions import RequestException
+    from app import fetcher
+
+    error = RequestException("connection failed")
+    monkeypatch.setattr(requests, "get", Mock(side_effect=error))
+    with pytest.raises(httpx.RequestError) as caught:
+        fetcher._fetch_impersonated("https://global.toyota/en/newsroom/")
+    assert caught.value.__cause__ is error
+    for browser in fetcher.IMPERSONATE_CHAIN:
+        assert f"{browser}=RequestException" in str(caught.value)
+
+
+def test_impersonated_final_transport_failure_keeps_prior_http_diagnostics(monkeypatch):
+    from unittest.mock import Mock
+
+    from curl_cffi import requests
+    from curl_cffi.requests.exceptions import RequestException
+    from app import fetcher
+
+    blocked = Mock(status_code=403)
+    error = RequestException("connection failed")
+    monkeypatch.setattr(requests, "get", Mock(side_effect=[blocked, error, error]))
+    with pytest.raises(httpx.RequestError) as caught:
+        fetcher._fetch_impersonated("https://example.com/feed")
+    assert caught.value.__cause__ is error
+    assert "chrome=HTTP 403" in str(caught.value)
+    assert "safari=RequestException" in str(caught.value)
+    assert "firefox135=RequestException" in str(caught.value)
+    blocked.close.assert_called_once()
+
+
+def test_impersonated_retries_stream_failure_and_closes_responses(monkeypatch):
+    from unittest.mock import Mock
+
+    from curl_cffi import requests
+    from curl_cffi.requests.exceptions import RequestException
+    from app import fetcher
+
+    broken = Mock(status_code=200)
+    broken.iter_content.side_effect = RequestException("stream interrupted")
+    working = Mock(status_code=200)
+    working.iter_content.return_value = iter([b"feed"])
+    get = Mock(side_effect=[broken, working])
+    monkeypatch.setattr(requests, "get", get)
+    assert fetcher._fetch_impersonated("https://example.com/feed") == b"feed"
+    assert get.call_count == 2
+    broken.close.assert_called_once()
+    working.close.assert_called_once()
+
+
+def test_impersonated_does_not_hide_unexpected_errors(monkeypatch):
+    from unittest.mock import Mock
+
+    from curl_cffi import requests
+    from app import fetcher
+
+    monkeypatch.setattr(requests, "get", Mock(side_effect=ValueError("invalid configuration")))
+    with pytest.raises(ValueError, match="invalid configuration"):
+        fetcher._fetch_impersonated("https://example.com/feed")
