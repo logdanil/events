@@ -310,6 +310,45 @@ _DEFAULT_ASSET_SOURCES = [
     {"name": "Toyota USA — резерв (региональные пресс-релизы)", "type": "IR", "priority": 1,
      "parser": "rss", "refresh_interval": 60, "url": "https://pressroom.toyota.com/feed/",
      "subscribers": ["TOYOTA"]},
+    # Samsung и Toyota закрывают newsroom/IR от адресов дата-центров (403 на все
+    # TLS-отпечатки). Дополнительные каналы, проверенные с сервера бота; исходные
+    # источники остаются включёнными.
+    # Регуляторные раскрытия: DART (Корея) и TDnet (Токийская биржа, зеркало Yanoshin).
+    # Тип EXCHANGE — персональная официальная лента: признак события в заголовке
+    # (яп./кор. термины в matcher) достаточен для анализа даже без имени компании.
+    {"name": "DART — раскрытия Samsung Electronics (регулятор Кореи)", "type": "EXCHANGE",
+     "priority": 1, "parser": "rss", "refresh_interval": 60,
+     "url": "https://dart.fss.or.kr/api/companyRSS.xml?crpCd=00126380", "subscribers": ["SAMSUNG"]},
+    {"name": "TDnet — раскрытия Toyota Motor 7203 (Токийская биржа, зеркало Yanoshin)",
+     "type": "EXCHANGE", "priority": 1, "parser": "rss", "refresh_interval": 60,
+     "url": "https://webapi.yanoshin.jp/webapi/tdnet/list/7203.rss", "subscribers": ["TOYOTA"]},
+    # Публикации самих официальных доменов через индекс Google News (обход 403):
+    # контент только первоисточника, поэтому тип IR, а не агрегатор NEWS.
+    {"name": "Samsung Newsroom через индекс Google (обход 403)", "type": "IR", "priority": 1,
+     "parser": "rss", "refresh_interval": 180,
+     "url": "https://news.google.com/rss/search?q=site:news.samsung.com+when:7d&hl=en-US&gl=US&ceid=US:en",
+     "subscribers": ["SAMSUNG"]},
+    {"name": "Toyota Global Newsroom через индекс Google (обход 403)", "type": "IR", "priority": 1,
+     "parser": "rss", "refresh_interval": 180,
+     "url": "https://news.google.com/rss/search?q=site:global.toyota+when:7d&hl=en-US&gl=US&ceid=US:en",
+     "subscribers": ["TOYOTA"]},
+    # Независимые от Google новостные агрегаторы (NEWS: нужно имя компании в тексте).
+    {"name": "Bing News — Samsung Electronics", "type": "NEWS", "priority": 2, "parser": "rss",
+     "refresh_interval": 120,
+     "url": "https://www.bing.com/news/search?q=%22Samsung+Electronics%22&format=rss",
+     "subscribers": ["SAMSUNG"]},
+    {"name": "Yahoo Finance — 005930.KS (Samsung Electronics)", "type": "NEWS", "priority": 2,
+     "parser": "rss", "refresh_interval": 120,
+     "url": "https://feeds.finance.yahoo.com/rss/2.0/headline?s=005930.KS&region=US&lang=en-US",
+     "subscribers": ["SAMSUNG"]},
+    {"name": "Bing News — Toyota Motor", "type": "NEWS", "priority": 2, "parser": "rss",
+     "refresh_interval": 120,
+     "url": "https://www.bing.com/news/search?q=%22Toyota+Motor%22&format=rss",
+     "subscribers": ["TOYOTA"]},
+    {"name": "Yahoo Finance — TM (Toyota Motor ADR)", "type": "NEWS", "priority": 2,
+     "parser": "rss", "refresh_interval": 120,
+     "url": "https://feeds.finance.yahoo.com/rss/2.0/headline?s=TM&region=US&lang=en-US",
+     "subscribers": ["TOYOTA"]},
     {"name": "HKEX — News Releases", "type": "EXCHANGE", "priority": 1, "parser": "html",
      "refresh_interval": 60, "url": "https://www.hkex.com.hk/News/News-Release?sc_lang=en",
      "subscribers": ["TENCENT", "XIA", "HANG"]},

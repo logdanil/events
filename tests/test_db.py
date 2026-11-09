@@ -89,3 +89,42 @@ def test_toyota_official_backup_preserves_global_source(tmp_db):
     backup = next(s for s in db.list_source_defs() if s["url"] == "https://pressroom.toyota.com/feed/")
     assert backup["parser"] == "rss" and backup["subscribers"] == ["TOYOTA"]
     assert "резерв" in backup["name"]
+
+
+def test_samsung_toyota_supplementary_sources(tmp_db):
+    """Дополнительные каналы для заблокированных Samsung/Toyota подключаются
+    рядом с исходными (не вместо) и с корректными типами владения."""
+    db.upsert_asset("SAMSUNG", "Акции Samsung Electronics", "SHARE")
+    db.upsert_asset("TOYOTA", "Toyota Motor Corporation", "ADR")
+    db.add_source("SAMSUNG", "https://news.samsung.com/global/category/press-resources/press-release")
+    db.add_source("TOYOTA", "https://global.toyota/en/newsroom/")
+    db.init_db()
+    by_url = {s["url"]: s for s in db.list_source_defs()}
+    expected = {
+        "https://dart.fss.or.kr/api/companyRSS.xml?crpCd=00126380": ("SAMSUNG", "EXCHANGE"),
+        "https://webapi.yanoshin.jp/webapi/tdnet/list/7203.rss": ("TOYOTA", "EXCHANGE"),
+        "https://news.google.com/rss/search?q=site:news.samsung.com+when:7d&hl=en-US&gl=US&ceid=US:en":
+            ("SAMSUNG", "IR"),
+        "https://news.google.com/rss/search?q=site:global.toyota+when:7d&hl=en-US&gl=US&ceid=US:en":
+            ("TOYOTA", "IR"),
+        "https://www.bing.com/news/search?q=%22Samsung+Electronics%22&format=rss": ("SAMSUNG", "NEWS"),
+        "https://feeds.finance.yahoo.com/rss/2.0/headline?s=005930.KS&region=US&lang=en-US":
+            ("SAMSUNG", "NEWS"),
+        "https://www.bing.com/news/search?q=%22Toyota+Motor%22&format=rss": ("TOYOTA", "NEWS"),
+        "https://feeds.finance.yahoo.com/rss/2.0/headline?s=TM&region=US&lang=en-US": ("TOYOTA", "NEWS"),
+    }
+    for url, (code, source_type) in expected.items():
+        assert by_url[url]["subscribers"] == [code] and by_url[url]["type"] == source_type
+        assert by_url[url]["parser"] == "rss" and by_url[url]["enabled"] == 1
+    assert "https://news.samsung.com/global/category/press-resources/press-release" in by_url
+    assert "https://global.toyota/en/newsroom/" in by_url
+
+
+def test_toyota_cik_enables_sec_feed(tmp_db):
+    from app import assets_sync
+    from tests.conftest import ROOT
+    assets_sync.sync_from_md(ROOT / "underlyings_sources.md")
+    assets_sync.ensure_backup_sources()
+    assert db.get_asset("TOYOTA")["cik"] == "1094517"
+    sec = [s for s in db.list_source_defs() if "CIK=0001094517" in s["url"]]
+    assert len(sec) == 1 and sec[0]["type"] == "SEC" and sec[0]["subscribers"] == ["TOYOTA"]

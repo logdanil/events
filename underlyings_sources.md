@@ -226,10 +226,12 @@
 - **Базовый актив:** Американские депозитарные расписки на акции Toyota Motor Corporation
 - **ISIN:** `US8923313071`
 - **Тикер:** TM
+- **CIK:** `1094517`
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
   - https://global.toyota/en/newsroom/
   - https://pressroom.toyota.com/feed/
+  <!-- global.toyota закрыт антибот-защитой для адресов дата-центров (403). Дополнительное покрытие: SEC EDGAR по CIK (6-K), TDnet 7203, global.toyota через индекс Google, Bing/Yahoo (app/db.py). -->
 
 ## ASML
 - **Базовый актив:** Депозитарные расписки на акции ASML Holding
@@ -254,6 +256,7 @@
 - **Источники мониторинга:**
   - https://news.samsung.com/global/category/press-resources/press-release
   - https://www.londonstockexchange.com/stock/SMSN/samsung-electronics-co-ltd-att/company-page
+  <!-- news.samsung.com и samsung.com закрыты антибот-защитой для адресов дата-центров (403). Дополнительное покрытие: DART (регулятор Кореи), news.samsung.com через индекс Google, Bing/Yahoo (app/db.py). -->
 
 ## HYNIX
 - **Базовый актив:** Акции SK Hynix

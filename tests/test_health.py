@@ -369,7 +369,7 @@ def test_google_news_incidents_aggregated(tmp_db):
     db.upsert_asset("A1", "Asset One", "SHARE")
     for i in range(6):
         db.add_source("A1", f"https://news.google.com/rss/search?q=test{i}")
-    google = [s for s in db.list_source_defs() if "news.google.com" in s["url"]]
+    google = [s for s in db.list_source_defs() if "news.google.com/rss/search?q=test" in s["url"]]
     for src in google:
         for _ in range(health.SOURCE_FAIL_THRESHOLD):
             health.check_source(src, "HTTPStatusError: Server error '503 Service Unavailable'")

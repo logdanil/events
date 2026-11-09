@@ -164,3 +164,56 @@ def test_brand_in_asset_own_news_feed_is_medium(tmp_db):
     nothing = matcher.match_publication({"title": "Automaker announces stock split", "text": "",
                                          "source_type": "NEWS", "subscribers": ["TSLA"]}, profiles)
     assert nothing == [], "без имени в тексте собственная лента не даёт кандидата"
+
+
+def _asian_profiles():
+    return matcher.build_profiles([
+        {"code": "TOYOTA", "name": "Американские депозитарные расписки на акции Toyota Motor Corporation",
+         "instrument_type": "ADR", "underlying_ticker": "TM", "aliases": ["Toyota Motor Corporation"]},
+        {"code": "SAMSUNG", "name": "Акции Samsung Electronics", "instrument_type": "SHARE",
+         "aliases": ["Samsung Electronics"]},
+    ])
+
+
+@pytest.mark.parametrize("title,code", [
+    ("トヨタ自:自己株式の取得に係る事項の一部変更、自己株式の公開買付け並びに自己株式の消却に関するお知らせ",
+     "TOYOTA"),
+    ("(유가)삼성전자 - 현금ㆍ현물배당결정", "SAMSUNG"),
+    ("(유가)삼성전자 - 주요사항보고서(자기주식취득결정)", "SAMSUNG"),
+])
+def test_asian_regulatory_disclosure_reaches_llm(title, code):
+    """TDnet/DART: событие в японском/корейском заголовке проходит фильтр и
+    персональная регуляторная лента даёт активу medium без латинского имени."""
+    pub = {"title": title, "text": "", "source_type": "EXCHANGE", "subscribers": [code]}
+    assert matcher.has_corporate_keywords(pub)
+    profiles = _asian_profiles()
+    assert matcher.keyword_gate(pub, profiles)
+    result = matcher.match_one(pub, next(p for p in profiles if p.code == code))
+    assert result.confidence in ("medium", "high")
+    assert "source_owned_by_asset" in result.matched_by
+
+
+def test_routine_dart_ownership_report_is_filtered():
+    pub = {"title": "(유가)삼성전자 - 임원ㆍ주요주주특정증권등소유상황보고서", "text": "",
+           "source_type": "EXCHANGE", "subscribers": ["SAMSUNG"]}
+    assert not matcher.keyword_gate(pub, _asian_profiles())
+
+
+def test_tdnet_earnings_release_is_filtered():
+    pub = {"title": "トヨタ自:2027年3月期 第2四半期（中間期）決算短信〔IFRS〕（連結)", "text": "",
+           "source_type": "EXCHANGE", "subscribers": ["TOYOTA"]}
+    assert not matcher.keyword_gate(pub, _asian_profiles())
+
+
+def test_news_aggregator_without_company_name_is_not_owned():
+    """Bing/Yahoo (NEWS) не дают владения: новость о другой компании с ключевым
+    словом не приписывается Samsung."""
+    pub = {"title": "SK Hynix announces share buyback", "text": "",
+           "source_type": "NEWS", "subscribers": ["SAMSUNG"]}
+    profile = next(p for p in _asian_profiles() if p.code == "SAMSUNG")
+    assert matcher.match_one(pub, profile).confidence == "none"
+
+
+def test_cjk_keywords_do_not_change_latin_matching():
+    assert not matcher.has_corporate_keywords({"title": "Toyota unveils new hybrid model", "text": ""})
+    assert matcher.has_corporate_keywords({"title": "Toyota announces share buyback", "text": ""})
