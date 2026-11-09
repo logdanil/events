@@ -229,6 +229,7 @@
 - **Биржа первичного листинга:** NYSE
 - **Источники мониторинга:**
   - https://global.toyota/en/newsroom/
+  - https://pressroom.toyota.com/feed/
 
 ## ASML
 - **Базовый актив:** Депозитарные расписки на акции ASML Holding

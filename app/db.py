@@ -5,6 +5,7 @@ import logging
 import re
 import sqlite3
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -175,6 +176,11 @@ CREATE TABLE IF NOT EXISTS scan_runs (
 
 @contextmanager
 def connect():
+    if settings.database_url:
+        from app import postgres
+        with postgres.pool(settings.database_url).connection() as raw:
+            yield postgres.Connection(raw)
+        return
     path = Path(settings.db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
@@ -231,9 +237,15 @@ _PROCESSED_COLUMNS = {
 
 
 def _migrate_columns(conn, table: str, columns: dict[str, str]) -> None:
-    existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if settings.database_url:
+        from app import postgres
+        existing = postgres.columns(conn, table)
+    else:
+        existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
     for column, col_type in columns.items():
         if column not in existing:
+            if settings.database_url and col_type == "REAL":
+                col_type = "DOUBLE PRECISION"
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
             log.info("Миграция: добавлена колонка %s.%s", table, column)
 
@@ -263,14 +275,15 @@ def _migrate_sources(conn) -> None:
         return
     for r in conn.execute("SELECT asset_code, url, kind, enabled FROM sources").fetchall():
         conn.execute(
-            "INSERT OR IGNORE INTO source_defs(name,type,priority,url,parser,refresh_interval,enabled) "
-            "VALUES(?,?,?,?,?,?,?)",
+            "INSERT INTO source_defs(name,type,priority,url,parser,refresh_interval,enabled) "
+            "VALUES(?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
             (_source_name_from_url(r["url"]), _infer_source_type(r["url"]),
              1 if r["kind"] == "official" else 2, r["url"], "auto", 60, r["enabled"]))
         source_id = conn.execute("SELECT id FROM source_defs WHERE url=?", (r["url"],)).fetchone()[0]
-        conn.execute("INSERT OR IGNORE INTO asset_sources(asset_code,source_id) VALUES(?,?)",
+        conn.execute("INSERT INTO asset_sources(asset_code,source_id) VALUES(?,?) ON CONFLICT DO NOTHING",
                      (r["asset_code"], source_id))
-    conn.execute("INSERT OR REPLACE INTO settings(key,value) VALUES('sources_v2_migrated','1')")
+    conn.execute("INSERT INTO settings(key,value) VALUES('sources_v2_migrated','1') "
+                 "ON CONFLICT(key) DO UPDATE SET value=excluded.value")
     log.info("Источники перенесены в source_defs/asset_sources")
 
 
@@ -294,6 +307,9 @@ _DEFAULT_ASSET_SOURCES = [
      "refresh_interval": 60, "url": "https://news.sap.com/feed/", "subscribers": ["SAP"]},
     {"name": "Samsung Newsroom (пресс-релизы)", "type": "IR", "priority": 1, "parser": "rss",
      "refresh_interval": 60, "url": "https://news.samsung.com/global/feed", "subscribers": ["SAMSUNG"]},
+    {"name": "Toyota USA — резерв (региональные пресс-релизы)", "type": "IR", "priority": 1,
+     "parser": "rss", "refresh_interval": 60, "url": "https://pressroom.toyota.com/feed/",
+     "subscribers": ["TOYOTA"]},
     {"name": "HKEX — News Releases", "type": "EXCHANGE", "priority": 1, "parser": "html",
      "refresh_interval": 60, "url": "https://www.hkex.com.hk/News/News-Release?sc_lang=en",
      "subscribers": ["TENCENT", "XIA", "HANG"]},
@@ -306,13 +322,13 @@ _DEFAULT_ASSET_SOURCES = [
 def _seed_default_sources(conn) -> None:
     for s in _DEFAULT_GLOBAL_SOURCES + _DEFAULT_ASSET_SOURCES:
         conn.execute(
-            "INSERT OR IGNORE INTO source_defs(name,type,priority,url,parser,refresh_interval,enabled) "
-            "VALUES(?,?,?,?,?,?,1)",
+            "INSERT INTO source_defs(name,type,priority,url,parser,refresh_interval,enabled) "
+            "VALUES(?,?,?,?,?,?,1) ON CONFLICT DO NOTHING",
             (s["name"], s["type"], s["priority"], s["url"], s["parser"], s["refresh_interval"]))
         source_id = conn.execute("SELECT id FROM source_defs WHERE url=?", (s["url"],)).fetchone()[0]
         for code in s.get("subscribers", []):
             if conn.execute("SELECT 1 FROM assets WHERE code=?", (code,)).fetchone():
-                conn.execute("INSERT OR IGNORE INTO asset_sources(asset_code,source_id) VALUES(?,?)",
+                conn.execute("INSERT INTO asset_sources(asset_code,source_id) VALUES(?,?) ON CONFLICT DO NOTHING",
                              (code, source_id))
 
 
@@ -354,7 +370,8 @@ def _enrich_assets(conn) -> None:
         if underlying and not a["underlying_ticker"]:
             conn.execute("UPDATE assets SET underlying_ticker=? WHERE code=?", (underlying, a["code"]))
         _add_identifiers(conn, a["code"], aliases)
-    conn.execute("INSERT OR REPLACE INTO settings(key,value) VALUES('assets_enriched_v3','1')")
+    conn.execute("INSERT INTO settings(key,value) VALUES('assets_enriched_v3','1') "
+                 "ON CONFLICT(key) DO UPDATE SET value=excluded.value")
     log.info("Активы обогащены тикерами и алиасами из имеющихся данных")
 
 
@@ -370,7 +387,7 @@ def _backup_before_migration(path: Path) -> None:
 def init_db() -> None:
     path = Path(settings.db_path)
     needs_v3 = False
-    if path.exists():
+    if not settings.database_url and path.exists():
         with connect() as conn:
             has_settings = conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='settings'").fetchone()
@@ -380,13 +397,21 @@ def init_db() -> None:
         if needs_v3:
             _backup_before_migration(path)
     with connect() as conn:
-        conn.executescript(SCHEMA)
-        _migrate_identifiers(conn)
+        if settings.database_url:
+            from app import postgres
+            conn.execute("SELECT pg_advisory_xact_lock(738541920)")
+            conn.execute("CREATE EXTENSION IF NOT EXISTS citext")
+            conn.executescript(postgres.schema_for_postgres(SCHEMA))
+        else:
+            conn.executescript(SCHEMA)
         _migrate_columns(conn, "events", _EVENT_COLUMNS)
         _migrate_columns(conn, "scan_runs", _SCAN_RUN_COLUMNS)
         _migrate_columns(conn, "assets", _ASSET_COLUMNS)
         _migrate_columns(conn, "processed_articles", _PROCESSED_COLUMNS)
         _migrate_columns(conn, "source_defs", _SOURCE_COLUMNS)
+        if settings.database_url:
+            postgres.migrate_sqlite(conn, path)
+        _migrate_identifiers(conn)
         _migrate_sources(conn)
         _seed_default_sources(conn)
         _enrich_assets(conn)
@@ -394,11 +419,13 @@ def init_db() -> None:
         # у них фиксированные event_type и source_url.
         conn.execute("UPDATE events SET is_test=1 WHERE is_test=0 AND "
                      "(event_type='Тестовое событие' OR source_url LIKE '%example.com/testevent%')")
-        conn.execute("INSERT OR REPLACE INTO settings(key,value) VALUES('schema_v3','1')")
+        conn.execute("INSERT INTO settings(key,value) VALUES('schema_v3','1') "
+                     "ON CONFLICT(key) DO UPDATE SET value=excluded.value")
 
 
 def _add_identifiers(conn, code: str, aliases: Iterable[str]) -> None:
-    conn.execute("INSERT OR IGNORE INTO asset_identifiers(asset_code,identifier,kind) VALUES(?,?,'code')",
+    conn.execute("INSERT INTO asset_identifiers(asset_code,identifier,kind) VALUES(?,?,'code') "
+                 "ON CONFLICT DO NOTHING",
                  (code, code))
     extra = list(aliases)
     # Составные коды вида "BR, BRM" — это несколько контрактных кодов одного базового
@@ -408,7 +435,8 @@ def _add_identifiers(conn, code: str, aliases: Iterable[str]) -> None:
     for alias in extra:
         alias = (alias or "").strip()
         if alias:
-            conn.execute("INSERT OR IGNORE INTO asset_identifiers(asset_code,identifier,kind) VALUES(?,?,'alias')",
+            conn.execute("INSERT INTO asset_identifiers(asset_code,identifier,kind) VALUES(?,?,'alias') "
+                         "ON CONFLICT DO NOTHING",
                          (code, alias))
 
 
@@ -420,7 +448,8 @@ def _migrate_identifiers(conn) -> None:
         return
     for r in conn.execute("SELECT code, aliases_json FROM assets").fetchall():
         _add_identifiers(conn, r["code"], json.loads(r["aliases_json"] or "[]"))
-    conn.execute("INSERT OR REPLACE INTO settings(key,value) VALUES('identifiers_migrated','1')")
+    conn.execute("INSERT INTO settings(key,value) VALUES('identifiers_migrated','1') "
+                 "ON CONFLICT(key) DO UPDATE SET value=excluded.value")
     log.info("Идентификаторы активов перенесены в asset_identifiers")
 
 
@@ -437,12 +466,12 @@ def seed_from_json(assets_path: str, prompts_path: str) -> None:
                 _add_identifiers(conn, a["code"], a.get("aliases", []))
                 for s in a.get("sources", []):
                     conn.execute(
-                        "INSERT OR IGNORE INTO source_defs(name,type,priority,url,parser,refresh_interval,enabled) "
-                        "VALUES(?,?,?,?,?,?,1)",
+                        "INSERT INTO source_defs(name,type,priority,url,parser,refresh_interval,enabled) "
+                        "VALUES(?,?,?,?,?,?,1) ON CONFLICT DO NOTHING",
                         (_source_name_from_url(s["url"]), _infer_source_type(s["url"]),
                          1 if s.get("kind", "official") == "official" else 2, s["url"], "auto", 60))
                     source_id = conn.execute("SELECT id FROM source_defs WHERE url=?", (s["url"],)).fetchone()[0]
-                    conn.execute("INSERT OR IGNORE INTO asset_sources(asset_code,source_id) VALUES(?,?)",
+                    conn.execute("INSERT INTO asset_sources(asset_code,source_id) VALUES(?,?) ON CONFLICT DO NOTHING",
                                  (a["code"], source_id))
         if conn.execute("SELECT COUNT(*) FROM event_prompts").fetchone()[0] == 0:
             prompts = json.loads(Path(prompts_path).read_text(encoding="utf-8"))
@@ -450,8 +479,9 @@ def seed_from_json(assets_path: str, prompts_path: str) -> None:
                 "INSERT INTO event_prompts(event_type,instrument_type,search_phrase,severity) VALUES(?,?,?,?)",
                 [(p["event_type"], p["instrument_type"], p["search_phrase"], p.get("severity", "critical")) for p in prompts],
             )
-        conn.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('paused','0')")
-        conn.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('interval_minutes',?)", (str(settings.scan_interval_minutes),))
+        conn.execute("INSERT INTO settings(key,value) VALUES('paused','0') ON CONFLICT DO NOTHING")
+        conn.execute("INSERT INTO settings(key,value) VALUES('interval_minutes',?) ON CONFLICT DO NOTHING",
+                     (str(settings.scan_interval_minutes),))
 
 
 def list_assets(enabled_only: bool = False) -> list[dict[str, Any]]:
@@ -486,19 +516,20 @@ def resolve_asset(query: str) -> tuple[dict[str, Any] | None, list[dict[str, Any
     if not q:
         return None, []
     with connect() as conn:
-        row = conn.execute("SELECT code FROM assets WHERE code=? COLLATE NOCASE", (q,)).fetchone()
+        row = conn.execute("SELECT code FROM assets WHERE LOWER(code)=LOWER(?)", (q,)).fetchone()
         codes = [row["code"]] if row else []
         if not codes:
             codes = [r["asset_code"] for r in conn.execute(
                 "SELECT DISTINCT asset_code FROM asset_identifiers WHERE identifier=?", (q,)).fetchall()]
         if not codes:
             codes = [r["code"] for r in conn.execute(
-                "SELECT code FROM assets WHERE name=? COLLATE NOCASE", (q,)).fetchall()]
+                "SELECT code FROM assets WHERE LOWER(name)=LOWER(?)", (q,)).fetchall()]
         if not codes:
             like = f"%{q}%"
             codes = [r["code"] for r in conn.execute(
                 "SELECT DISTINCT a.code FROM assets a LEFT JOIN asset_identifiers i ON i.asset_code=a.code "
-                "WHERE a.name LIKE ? OR i.identifier LIKE ? ORDER BY a.code", (like, like)).fetchall()]
+                "WHERE LOWER(a.name) LIKE LOWER(?) OR LOWER(i.identifier) LIKE LOWER(?) "
+                "ORDER BY a.code", (like, like)).fetchall()]
     if len(codes) == 1:
         return get_asset(codes[0]), []
     candidates = [a for c in codes[:10] for a in (get_asset(c),) if a]
@@ -519,7 +550,8 @@ def upsert_asset(code: str, name: str, instrument_type: str, aliases: list[str] 
 def add_alias(code: str, alias: str, kind: str = "alias") -> bool:
     """Добавляет идентификатор (алиас, тикер, ISIN…) к активу по каноническому коду."""
     with connect() as conn:
-        cur = conn.execute("INSERT OR IGNORE INTO asset_identifiers(asset_code,identifier,kind) VALUES(?,?,?)",
+        cur = conn.execute("INSERT INTO asset_identifiers(asset_code,identifier,kind) VALUES(?,?,?) "
+                           "ON CONFLICT DO NOTHING",
                            (code.upper().strip(), alias.strip(), kind))
         return cur.rowcount > 0
 
@@ -530,30 +562,36 @@ def add_source(code: str, url: str, kind: str = "official",
     url = url.strip()
     with connect() as conn:
         conn.execute(
-            "INSERT OR IGNORE INTO source_defs(name,type,priority,url,parser,refresh_interval,enabled) "
-            "VALUES(?,?,?,?,?,?,1)",
+            "INSERT INTO source_defs(name,type,priority,url,parser,refresh_interval,enabled) "
+            "VALUES(?,?,?,?,?,?,1) ON CONFLICT DO NOTHING",
             (_source_name_from_url(url), source_type or _infer_source_type(url),
              1 if kind == "official" else 2, url, "auto", refresh_interval))
         source_id = conn.execute("SELECT id FROM source_defs WHERE url=?", (url,)).fetchone()[0]
-        conn.execute("INSERT OR IGNORE INTO asset_sources(asset_code,source_id) VALUES(?,?)",
+        conn.execute("INSERT INTO asset_sources(asset_code,source_id) VALUES(?,?) ON CONFLICT DO NOTHING",
                      (code.upper().strip(), source_id))
 
 
 def list_source_defs(enabled_only: bool = True, due_only: bool = False) -> list[dict[str, Any]]:
     """Реестр источников; due_only — только те, чей refresh_interval истёк."""
     where = ["enabled=1"] if enabled_only else []
-    if due_only:
-        where.append("(last_checked_at IS NULL OR "
-                     "datetime(last_checked_at, '+' || refresh_interval || ' minutes') <= datetime('now'))")
     clause = ("WHERE " + " AND ".join(where)) if where else ""
     with connect() as conn:
         rows = conn.execute(f"SELECT * FROM source_defs {clause} ORDER BY priority, id").fetchall()
         result = []
         for r in rows:
+            if due_only and r["last_checked_at"] and (
+                    datetime.fromisoformat(r["last_checked_at"]).replace(tzinfo=timezone.utc)
+                    + timedelta(minutes=r["refresh_interval"]) > datetime.now(timezone.utc)):
+                continue
             subscribers = [s["asset_code"] for s in conn.execute(
                 "SELECT asset_code FROM asset_sources WHERE source_id=?", (r["id"],)).fetchall()]
             result.append({**dict(r), "subscribers": subscribers})
         return result
+
+
+def utc_cutoff(*, days: int = 0, hours: float = 0, minutes: float = 0) -> str:
+    return (datetime.now(timezone.utc) - timedelta(
+        days=days, hours=hours, minutes=minutes)).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def source_subscribers(source_id: int) -> list[str]:
@@ -633,15 +671,16 @@ def remember_article(url: str, url_hash: str, title_hash: str | None,
         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(url_hash) DO UPDATE SET
           llm_result=excluded.llm_result, status=excluded.status,
-          title=COALESCE(excluded.title, title), text=COALESCE(excluded.text, text),
+          title=COALESCE(excluded.title, processed_articles.title),
+          text=COALESCE(excluded.text, processed_articles.text),
           matcher_version=excluded.matcher_version, filter_version=excluded.filter_version,
           llm_prompt_version=excluded.llm_prompt_version,
-          best_asset=COALESCE(excluded.best_asset, best_asset),
-          best_score=COALESCE(excluded.best_score, best_score),
+          best_asset=COALESCE(excluded.best_asset, processed_articles.best_asset),
+          best_score=COALESCE(excluded.best_score, processed_articles.best_score),
           pending_llm=excluded.pending_llm,
-          llm_event_type=COALESCE(excluded.llm_event_type, llm_event_type),
-          llm_summary=COALESCE(excluded.llm_summary, llm_summary),
-          source_id=COALESCE(excluded.source_id, source_id),
+          llm_event_type=COALESCE(excluded.llm_event_type, processed_articles.llm_event_type),
+          llm_summary=COALESCE(excluded.llm_summary, processed_articles.llm_summary),
+          source_id=COALESCE(excluded.source_id, processed_articles.source_id),
           processed_at=CURRENT_TIMESTAMP
         """, (url_hash, url, title_hash, published_at, source, llm_result, status,
               title, text, versions.MATCHER_VERSION, versions.FILTER_VERSION,
@@ -671,8 +710,8 @@ def publications_for_rematch(days: int = 7) -> list[dict[str, Any]]:
         rows = conn.execute(
             f"SELECT * FROM processed_articles WHERE title IS NOT NULL AND pending_llm=0 "
             f"AND COALESCE(status,'fetched') IN {_REMATCHABLE} "
-            "AND processed_at >= datetime('now', ?) ORDER BY processed_at DESC",
-            (f"-{int(days)} days",)).fetchall()
+            "AND processed_at >= ? ORDER BY processed_at DESC",
+            (utc_cutoff(days=int(days)),)).fetchall()
         return [dict(r) for r in rows]
 
 
@@ -682,11 +721,11 @@ def rematch_corpus_stats(days: int = 7) -> dict[str, int]:
         total = conn.execute(
             f"SELECT COUNT(*) FROM processed_articles WHERE pending_llm=0 "
             f"AND COALESCE(status,'fetched') IN {_REMATCHABLE} "
-            "AND processed_at >= datetime('now', ?)", (f"-{int(days)} days",)).fetchone()[0]
+            "AND processed_at >= ?", (utc_cutoff(days=int(days)),)).fetchone()[0]
         without_text = conn.execute(
             f"SELECT COUNT(*) FROM processed_articles WHERE title IS NULL AND pending_llm=0 "
             f"AND COALESCE(status,'fetched') IN {_REMATCHABLE} "
-            "AND processed_at >= datetime('now', ?)", (f"-{int(days)} days",)).fetchone()[0]
+            "AND processed_at >= ?", (utc_cutoff(days=int(days)),)).fetchone()[0]
         return {"corpus": total, "without_text": without_text}
 
 
@@ -758,8 +797,8 @@ def add_matcher_rule(asset_code: str, rule_type: str, pattern: str, weight: floa
                      source_domain: str | None = None, created_by: str | None = None) -> bool:
     with connect() as conn:
         cur = conn.execute(
-            "INSERT OR IGNORE INTO matcher_rules(asset_code,rule_type,pattern,weight,source_domain,created_by) "
-            "VALUES(?,?,?,?,?,?)",
+            "INSERT INTO matcher_rules(asset_code,rule_type,pattern,weight,source_domain,created_by) "
+            "VALUES(?,?,?,?,?,?) ON CONFLICT DO NOTHING",
             (asset_code.upper(), rule_type, pattern.strip(), weight, source_domain, created_by))
         return cur.rowcount > 0
 
@@ -780,7 +819,7 @@ ASSET_ID_FIELDS = {"isin", "cusip", "cik", "lei", "underlying_ticker", "adr_tick
 
 def add_subscriber(chat_id: int, name: str | None = None) -> bool:
     with connect() as conn:
-        cur = conn.execute("INSERT OR IGNORE INTO subscribers(chat_id,name) VALUES(?,?)",
+        cur = conn.execute("INSERT INTO subscribers(chat_id,name) VALUES(?,?) ON CONFLICT DO NOTHING",
                            (int(chat_id), name))
         return cur.rowcount > 0
 
@@ -804,7 +843,7 @@ def is_subscriber(chat_id: int) -> bool:
 
 def add_email_recipient(email: str, name: str | None = None) -> bool:
     with connect() as conn:
-        cur = conn.execute("INSERT OR IGNORE INTO email_recipients(email,name) VALUES(?,?)",
+        cur = conn.execute("INSERT INTO email_recipients(email,name) VALUES(?,?) ON CONFLICT DO NOTHING",
                            (email.strip().lower(), name))
         return cur.rowcount > 0
 
@@ -831,8 +870,8 @@ def set_asset_field(code: str, field: str, value: str | None) -> None:
 
 def prune_processed_articles(days: int = 30) -> None:
     with connect() as conn:
-        conn.execute("DELETE FROM processed_articles WHERE processed_at < datetime('now', ?)",
-                     (f"-{int(days)} days",))
+        conn.execute("DELETE FROM processed_articles WHERE processed_at < ?",
+                     (utc_cutoff(days=int(days)),))
 
 
 # --- Учёт стоимости LLM ------------------------------------------------------
@@ -855,8 +894,8 @@ def cost_stats() -> dict[str, Any]:
             return {"calls": row["c"], "input_tokens": row["ti"], "output_tokens": row["to_"],
                     "cost_usd": row["usd"], "cache_hits": row["ch"]}
         return {
-            "today": agg("WHERE date(created_at) = date('now')"),
-            "month": agg("WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')"),
+            "today": agg(f"WHERE SUBSTR(created_at,1,10) = '{utc_cutoff()[:10]}'"),
+            "month": agg(f"WHERE SUBSTR(created_at,1,7) = '{utc_cutoff()[:7]}'"),
             "total": agg(""),
         }
 
@@ -880,16 +919,17 @@ def event_exists(fingerprint: str) -> bool:
 
 
 def save_event(event: dict[str, Any]) -> int | None:
-    """Возвращает rowid новой записи или None, если событие уже есть (дубликат fingerprint)."""
+    """Возвращает стабильный ID новой записи или None для дубликата fingerprint."""
     action_required = event.get("action_required")
     with connect() as conn:
         try:
             cur = conn.execute("""
-            INSERT OR IGNORE INTO events(fingerprint,asset_code,event_type,event_date,title,summary_ru,impact_ru,
+            INSERT INTO events(fingerprint,asset_code,event_type,event_date,title,summary_ru,impact_ru,
               source_url,source_name,confidence,raw_json,severity,underlying_ticker,publication_date,
               effective_date,status,action_required,recommended_action,key_parameters_json,additional_sources_json,
               is_test)
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(fingerprint) DO NOTHING RETURNING rowid AS id
             """, (event["fingerprint"], event["asset_code"], event["event_type"], event.get("event_date"),
                   event["title"], event.get("summary_ru", ""), event.get("impact_ru"), event.get("source_url", ""),
                   event.get("source_name"), float(event.get("confidence", 0)), json.dumps(event, ensure_ascii=False),
@@ -902,7 +942,8 @@ def save_event(event: dict[str, Any]) -> int | None:
             # Дубликат гасится OR IGNORE, поэтому сюда попадают только нарушения других ограничений.
             log.exception("IntegrityError при записи события %s", event.get("fingerprint", "")[:16])
             return None
-        return cur.lastrowid if cur.rowcount > 0 else None
+        row = cur.fetchone()
+        return row["id"] if row else None
 
 
 def mark_sent(fingerprint: str) -> None:
@@ -910,11 +951,17 @@ def mark_sent(fingerprint: str) -> None:
         conn.execute("UPDATE events SET sent_at=CURRENT_TIMESTAMP WHERE fingerprint=?", (fingerprint,))
 
 
+def _event_dict(row) -> dict[str, Any]:
+    result = dict(row)
+    result.pop("rowid", None)
+    return result
+
+
 def unsent_events(limit: int = 50) -> list[dict[str, Any]]:
     with connect() as conn:
         rows = conn.execute("SELECT rowid AS id, * FROM events WHERE sent_at IS NULL AND is_test=0 "
                             "ORDER BY detected_at LIMIT ?", (limit,)).fetchall()
-        return [dict(r) for r in rows]
+        return [_event_dict(r) for r in rows]
 
 
 def recent_events(limit: int = 20, asset_code: str | None = None,
@@ -930,7 +977,7 @@ def recent_events(limit: int = 20, asset_code: str | None = None,
         rows = conn.execute(
             f"SELECT rowid AS id, * FROM events WHERE {' AND '.join(where)} "
             "ORDER BY detected_at DESC LIMIT ?", (*params, limit)).fetchall()
-        return [dict(r) for r in rows]
+        return [_event_dict(r) for r in rows]
 
 
 def similar_event_exists(asset_code: str, event_type: str, days: int = 14) -> bool:
@@ -939,8 +986,8 @@ def similar_event_exists(asset_code: str, event_type: str, days: int = 14) -> bo
     with connect() as conn:
         return conn.execute(
             "SELECT 1 FROM events WHERE asset_code=? AND event_type=? AND is_test=0 "
-            "AND detected_at >= datetime('now', ?) LIMIT 1",
-            (asset_code.upper(), event_type, f"-{int(days)} days")).fetchone() is not None
+            "AND detected_at >= ? LIMIT 1",
+            (asset_code.upper(), event_type, utc_cutoff(days=int(days)))).fetchone() is not None
 
 
 def last_event_for_asset(asset_code: str) -> dict[str, Any] | None:
@@ -951,7 +998,7 @@ def last_event_for_asset(asset_code: str) -> dict[str, Any] | None:
 def get_event(event_id: int) -> dict[str, Any] | None:
     with connect() as conn:
         row = conn.execute("SELECT rowid AS id, * FROM events WHERE rowid=?", (event_id,)).fetchone()
-        return dict(row) if row else None
+        return _event_dict(row) if row else None
 
 
 def delete_event(event_id: int) -> bool:
@@ -967,9 +1014,9 @@ def delete_test_events() -> int:
 def events_since_hours(hours: int = 24) -> list[dict[str, Any]]:
     with connect() as conn:
         rows = conn.execute(
-            "SELECT rowid AS id, * FROM events WHERE is_test=0 AND detected_at >= datetime('now', ?) "
-            "ORDER BY detected_at DESC", (f"-{int(hours)} hours",)).fetchall()
-        return [dict(r) for r in rows]
+            "SELECT rowid AS id, * FROM events WHERE is_test=0 AND detected_at >= ? "
+            "ORDER BY detected_at DESC", (utc_cutoff(hours=int(hours)),)).fetchall()
+        return [_event_dict(r) for r in rows]
 
 
 def last_ok_run() -> dict[str, Any] | None:
@@ -1002,21 +1049,21 @@ def recent_articles(limit: int = 15, source_like: str | None = None) -> list[dic
 def daily_summary_data(hours: int = 24) -> dict[str, Any]:
     """Данные для ежедневного саммари: что было проанализировано за период,
     включая публикации, не прошедшие фильтры."""
-    since = f"-{int(hours)} hours"
+    since = utc_cutoff(hours=int(hours))
     with connect() as conn:
         status_counts = {r["s"]: r["n"] for r in conn.execute(
             "SELECT COALESCE(status,'fetched') s, COUNT(*) n FROM processed_articles "
-            "WHERE processed_at >= datetime('now', ?) GROUP BY 1", (since,)).fetchall()}
+            "WHERE processed_at >= ? GROUP BY 1", (since,)).fetchall()}
         llm_seen = [dict(r) for r in conn.execute(
             "SELECT title, source, status, llm_result, best_asset FROM processed_articles "
-            "WHERE processed_at >= datetime('now', ?) "
+            "WHERE processed_at >= ? "
             "AND status IN ('llm_analyzed','rejected','event_created') "
             "ORDER BY processed_at DESC LIMIT 60", (since,)).fetchall()]
         near_miss = [dict(r) for r in conn.execute(
             "SELECT title, best_asset, best_score FROM processed_articles "
-            "WHERE processed_at >= datetime('now', ?) AND status='unmatched' "
+            "WHERE processed_at >= ? AND status='unmatched' "
             "AND best_score >= 0.4 ORDER BY best_score DESC LIMIT 15", (since,)).fetchall()]
-        scans = conn.execute("SELECT COUNT(*) FROM scan_runs WHERE started_at >= datetime('now', ?)",
+        scans = conn.execute("SELECT COUNT(*) FROM scan_runs WHERE started_at >= ?",
                              (since,)).fetchone()[0]
     return {
         "status_counts": status_counts,
@@ -1042,9 +1089,9 @@ def daily_report_rows(hours: int = 24) -> list[dict[str, Any]]:
             "d.url source_url, d.type source_type "
             "FROM processed_articles p LEFT JOIN assets a ON a.code = p.best_asset "
             "LEFT JOIN source_defs d ON d.id = p.source_id "
-            "WHERE p.processed_at >= datetime('now', ?) AND p.best_asset IS NOT NULL "
+            "WHERE p.processed_at >= ? AND p.best_asset IS NOT NULL "
             "ORDER BY p.best_score DESC, p.processed_at DESC",
-            (f"-{int(hours)} hours",)).fetchall()
+            (utc_cutoff(hours=int(hours)),)).fetchall()
         return [dict(r) for r in rows]
 
 
@@ -1053,10 +1100,10 @@ def untranslated_titles(hours: int = 24) -> list[tuple[str, str]]:
     with connect() as conn:
         rows = conn.execute(
             "SELECT url_hash, title FROM processed_articles "
-            "WHERE processed_at >= datetime('now', ?) AND best_asset IS NOT NULL "
+            "WHERE processed_at >= ? AND best_asset IS NOT NULL "
             "AND title IS NOT NULL AND TRIM(title) != '' "
             "AND (title_ru IS NULL OR title_ru = '') ORDER BY best_score DESC",
-            (f"-{int(hours)} hours",)).fetchall()
+            (utc_cutoff(hours=int(hours)),)).fetchall()
         return [(r["url_hash"], r["title"]) for r in rows]
 
 
@@ -1079,17 +1126,20 @@ def source_report_rows(hours: int = 24) -> list[dict[str, Any]]:
         rows = conn.execute(
             "SELECT d.id, d.name, d.type, d.url, d.enabled, d.refresh_interval, "
             "d.last_checked_at, d.last_error, COALESCE(d.fail_streak, 0) fail_streak, "
-            "(SELECT GROUP_CONCAT(asset_code, ', ') FROM (SELECT asset_code FROM asset_sources "
-            " WHERE source_id = d.id ORDER BY asset_code)) subscribers, "
             "(SELECT COUNT(*) FROM processed_articles p WHERE p.source_id = d.id "
-            " AND p.processed_at >= datetime('now', ?)) fetched, "
+            " AND p.processed_at >= ?) fetched, "
             "(SELECT COUNT(*) FROM processed_articles p WHERE p.source_id = d.id "
-            " AND p.processed_at >= datetime('now', ?) AND p.best_asset IS NOT NULL) matched, "
+            " AND p.processed_at >= ? AND p.best_asset IS NOT NULL) matched, "
             "(SELECT COUNT(*) FROM processed_articles p WHERE p.source_id = d.id "
-            " AND p.processed_at >= datetime('now', ?) AND p.status = 'event_created') events "
+            " AND p.processed_at >= ? AND p.status = 'event_created') events "
             "FROM source_defs d ORDER BY fetched DESC, d.enabled DESC, d.priority, d.id",
-            (f"-{int(hours)} hours",) * 3).fetchall()
-        return [dict(r) for r in rows]
+            (utc_cutoff(hours=int(hours)),) * 3).fetchall()
+        subscriptions: dict[int, list[str]] = {}
+        for subscription in conn.execute(
+                "SELECT source_id, asset_code FROM asset_sources ORDER BY asset_code"):
+            subscriptions.setdefault(subscription["source_id"], []).append(subscription["asset_code"])
+        return [{**dict(r), "subscribers": ", ".join(subscriptions.get(r["id"], [])) or None}
+                for r in rows]
 
 
 def articles_by_source(hours: int = 24) -> list[tuple[str, int]]:
@@ -1097,8 +1147,8 @@ def articles_by_source(hours: int = 24) -> list[tuple[str, int]]:
     with connect() as conn:
         rows = conn.execute(
             "SELECT COALESCE(source,'?') s, COUNT(*) n FROM processed_articles "
-            "WHERE processed_at >= datetime('now', ?) GROUP BY 1 ORDER BY n DESC",
-            (f"-{int(hours)} hours",)).fetchall()
+            "WHERE processed_at >= ? GROUP BY 1 ORDER BY n DESC",
+            (utc_cutoff(hours=int(hours)),)).fetchall()
         return [(r["s"], r["n"]) for r in rows]
 
 
@@ -1116,7 +1166,7 @@ def get_setting(key: str, default: str = "") -> str:
 
 def start_scan_run() -> int:
     with connect() as conn:
-        return conn.execute("INSERT INTO scan_runs DEFAULT VALUES").lastrowid
+        return conn.execute("INSERT INTO scan_runs DEFAULT VALUES RETURNING id").fetchone()["id"]
 
 
 def finish_scan_run(run_id: int, status: str, assets_scanned: int, new_events: int,
@@ -1135,6 +1185,13 @@ def db_stats() -> dict[str, Any]:
         "size_bytes": path.stat().st_size if path.exists() else 0,
     }
     with connect() as conn:
+        if settings.database_url:
+            stats.update(
+                backend="postgresql", path="PostgreSQL", exists=True,
+                size_bytes=conn.execute(
+                    "SELECT pg_database_size(current_database())").fetchone()[0])
+        else:
+            stats["backend"] = "sqlite"
         for table in ("assets", "sources", "event_prompts", "events", "scan_runs"):
             stats[table] = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
         row = conn.execute(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import os
 import re
+import uuid
 from pathlib import Path
 
 import dotenv
@@ -28,13 +29,48 @@ ASSETS_JSON = ROOT / "data" / "assets.json"
 PROMPTS_JSON = ROOT / "data" / "event_prompts.json"
 
 
+def pytest_addoption(parser):
+    parser.addoption("--postgres", action="store_true", help="Run database tests on an isolated PostgreSQL schema")
+
+
 @pytest.fixture
-def tmp_db(tmp_path, monkeypatch):
+def postgres_url():
+    url = os.environ.get("TEST_POSTGRES_URL")
+    if not url:
+        pytest.skip("Set TEST_POSTGRES_URL to run PostgreSQL integration tests")
+    import psycopg
+    from psycopg import sql
+    from app import postgres
+
+    schema = "test_events_" + uuid.uuid4().hex
+    with psycopg.connect(url) as conn:
+        conn.execute("SELECT pg_advisory_xact_lock(738541920)")
+        conn.execute("CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA public")
+        conn.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
+    isolated_url = psycopg.conninfo.make_conninfo(
+        url, options=f"-c search_path={schema},public -c timezone=UTC")
+    try:
+        yield isolated_url
+    finally:
+        postgres.close_pool()
+        with psycopg.connect(url, autocommit=True) as conn:
+            conn.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))
+
+
+@pytest.fixture
+def tmp_db(tmp_path, monkeypatch, request):
     """Изолированная SQLite-база во временной директории."""
-    test_settings = dataclasses.replace(settings, db_path=str(tmp_path / "test.db"), admin_telegram_id=111)
+    test_settings = dataclasses.replace(settings, db_path=str(tmp_path / "test.db"),
+                                       database_url="", admin_telegram_id=111)
     monkeypatch.setattr(db, "settings", test_settings)
     monkeypatch.setattr(bot, "settings", test_settings)
     db.init_db()
+    if request.config.getoption("--postgres"):
+        url = request.getfixturevalue("postgres_url")
+        test_settings = dataclasses.replace(test_settings, database_url=url)
+        monkeypatch.setattr(db, "settings", test_settings)
+        monkeypatch.setattr(bot, "settings", test_settings)
+        db.init_db()
     return test_settings
 
 

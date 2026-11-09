@@ -512,7 +512,7 @@ async def startup_selfcheck(app: Application) -> None:
     if rehab_error:
         lines.append(f"⚠️ Реабилитация источников не удалась: <code>{html.escape(rehab_error)}</code> — повторите /rehab")
     on_volume = _P(settings.db_path).is_absolute() and str(settings.db_path).startswith("/data")
-    if not on_volume:
+    if not settings.database_url and not on_volume:
         lines.append("⚠️ DB_PATH не указывает на /data — на Railway база НЕ переживёт деплой. "
                      "Подключите Volume и задайте DB_PATH=/data/monitor.db.")
     if stats["scan_runs"] == 0 and subs == 0:
@@ -806,7 +806,7 @@ async def post_init(app: Application) -> None:
         ThreadPoolExecutor(max_workers=8, thread_name_prefix="worker"))
     db.init_db()
     root = Path(__file__).resolve().parent.parent
-    # JSON-файлы — только начальная загрузка: единственный источник истины — SQLite.
+    # JSON-файлы — только начальная загрузка: источник истины — рабочая БД.
     db.seed_from_json(str(root / "data" / "assets.json"), str(root / "data" / "event_prompts.json"))
     # Рабочая методология: недостающие активы/ISIN/источники добавляются идемпотентно.
     underlyings = root / "underlyings_sources.md"
@@ -827,6 +827,11 @@ async def post_init(app: Application) -> None:
     app.job_queue.run_daily(send_daily_summary, time=dt_time(19, 0, tzinfo=MSK), name="daily_summary")
     app.job_queue.run_repeating(watchdog, interval=15 * 60, first=15 * 60, name="watchdog")
     log.info("Bot initialized with %s minute interval; daily summary at 19:00 MSK", interval)
+
+
+async def post_shutdown(app: Application) -> None:
+    from app import postgres
+    postgres.close_pool()
 
 
 from telegram.error import Conflict as _TgConflict, NetworkError as _TgNetworkError, \
@@ -886,7 +891,8 @@ def validate_settings() -> None:
 
 def main() -> None:
     validate_settings()
-    app = Application.builder().token(settings.telegram_bot_token).post_init(post_init).build()
+    app = (Application.builder().token(settings.telegram_bot_token)
+           .post_init(post_init).post_shutdown(post_shutdown).build())
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", start))
     app.add_handler(CommandHandler("id", show_id))

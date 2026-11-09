@@ -65,7 +65,7 @@ def test_scheduler_stale(tmp_db):
     db.finish_scan_run(run_id, "ok", 50, 0)
     assert health.check_scheduler(60) is None, "свежая проверка — всё в порядке"
     with db.connect() as conn:
-        conn.execute("UPDATE scan_runs SET finished_at=datetime('now','-5 hours') WHERE id=?", (run_id,))
+        conn.execute("UPDATE scan_runs SET finished_at=? WHERE id=?", (db.utc_cutoff(hours=5), run_id))
     alert = health.check_scheduler(60)
     assert alert and alert["key"] == "stale" and alert["severity"] == "critical"
 

@@ -21,7 +21,9 @@ def _sample_event(fingerprint: str = "fp-1") -> dict:
 
 def test_init_db_creates_tables(tmp_db):
     with db.connect() as conn:
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        query = ("SELECT table_name FROM information_schema.tables WHERE table_schema=current_schema()"
+                 if tmp_db.database_url else "SELECT name FROM sqlite_master WHERE type='table'")
+        tables = {r[0] for r in conn.execute(query)}
     assert {"assets", "sources", "event_prompts", "events", "settings"} <= tables
 
 
@@ -75,3 +77,15 @@ def test_scan_runs_and_db_stats(tmp_db):
     assert stats["scan_runs"] == 1
     assert stats["last_run"]["status"] == "ok"
     assert stats["last_run"]["new_events"] == 1
+
+
+def test_toyota_official_backup_preserves_global_source(tmp_db):
+    db.upsert_asset("TOYOTA", "Toyota Motor Corporation", "ADR")
+    db.add_source("TOYOTA", "https://global.toyota/en/newsroom/")
+    db.init_db()
+    sources = db.get_asset("TOYOTA")["sources"]
+    assert {"https://global.toyota/en/newsroom/", "https://pressroom.toyota.com/feed/"} <= {
+        s["url"] for s in sources}
+    backup = next(s for s in db.list_source_defs() if s["url"] == "https://pressroom.toyota.com/feed/")
+    assert backup["parser"] == "rss" and backup["subscribers"] == ["TOYOTA"]
+    assert "резерв" in backup["name"]

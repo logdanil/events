@@ -72,8 +72,8 @@ def report(component: str, key: str, message: str, severity: str = "warning") ->
             (severity, message[:500], _now(), 1 if was_resolved else occurrences, row["id"]))
         due = was_resolved or row["notified_at"] is None or conn.execute(
             "SELECT 1 FROM health_incidents WHERE id=? AND "
-            "datetime(notified_at, ?) <= datetime('now')",
-            (row["id"], f"+{COOLDOWN_HOURS} hours")).fetchone() is not None
+            "notified_at <= ?",
+            (row["id"], db.utc_cutoff(hours=COOLDOWN_HOURS))).fetchone() is not None
         if due:
             conn.execute("UPDATE health_incidents SET notified_at=? WHERE id=?", (_now(), row["id"]))
             return {"component": component, "key": key, "severity": severity,
@@ -290,8 +290,9 @@ def rehabilitate_sources() -> list[str]:
             if new_row:
                 # Рабочий URL уже есть отдельным источником: сломанный выключаем,
                 # его подписки переносим на рабочий (UNIQUE по url не даёт переименовать).
-                conn.execute("INSERT OR IGNORE INTO asset_sources (asset_code, source_id) "
-                             "SELECT asset_code, ? FROM asset_sources WHERE source_id=?",
+                conn.execute("INSERT INTO asset_sources (asset_code, source_id) "
+                             "SELECT asset_code, ? FROM asset_sources WHERE source_id=? "
+                             "ON CONFLICT DO NOTHING",
                              (new_row[0], old_row[0]))
                 conn.execute("UPDATE source_defs SET enabled=0 WHERE id=?", (old_row[0],))
                 conn.execute("UPDATE source_defs SET enabled=1, fail_streak=0 WHERE id=?",
@@ -415,11 +416,8 @@ def check_scheduler(interval_minutes: int) -> dict | None:
     last = db.last_ok_run()
     if not last:
         return None
-    with db.connect() as conn:
-        stale = conn.execute(
-            "SELECT datetime(?, ?) < datetime('now')",
-            (last["finished_at"] or last["started_at"],
-             f"+{int(interval_minutes * SCHEDULER_STALE_FACTOR)} minutes")).fetchone()[0]
+    stale = (last["finished_at"] or last["started_at"]) < db.utc_cutoff(
+        minutes=int(interval_minutes * SCHEDULER_STALE_FACTOR))
     if stale:
         return report("scheduler", "stale",
                       f"Плановые проверки не выполнялись дольше {int(interval_minutes * SCHEDULER_STALE_FACTOR)} мин "

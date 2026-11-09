@@ -15,7 +15,8 @@ def _with_secrets() -> Settings:
 def test_all_credentials_are_secret_fields():
     assert set(SECRET_FIELDS) == {
         "telegram_bot_token", "google_api_key", "tavily_api_key", "gmail_client_secret",
-        "gmail_refresh_token", "smtp2go_api_key", "brevo_api_key", "sendgrid_api_key", "smtp_password"}
+        "gmail_refresh_token", "smtp2go_api_key", "brevo_api_key", "sendgrid_api_key", "smtp_password",
+        "database_url"}
 
 
 def test_repr_hides_secrets():

@@ -18,6 +18,7 @@ class Settings:
     tavily_api_key: str = field(default=os.getenv("TAVILY_API_KEY", ""), repr=False)
     scan_interval_minutes: int = int(os.getenv("SCAN_INTERVAL_MINUTES", "60"))
     db_path: str = os.getenv("DB_PATH", "./data/monitor.db")
+    database_url: str = field(default=os.getenv("DATABASE_URL", ""), repr=False)
     timezone: str = os.getenv("TIMEZONE", "Europe/Amsterdam")
     max_search_results: int = int(os.getenv("MAX_SEARCH_RESULTS", "6"))
     lookback_days: int = int(os.getenv("LOOKBACK_DAYS", "3"))

@@ -758,7 +758,8 @@ async def dbstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(
         "Состояние базы данных:\n"
         f"Путь: {s['path']}\n"
-        f"Файл существует: {'да' if s['exists'] else 'нет'}\n"
+        f"{'Подключение' if s['backend'] == 'postgresql' else 'Файл существует'}: "
+        f"{'да' if s['exists'] else 'нет'}\n"
         f"Размер: {s['size_bytes'] / 1024:.1f} КБ\n"
         f"Активов: {s['assets']}\n"
         f"Источников: {s['sources']}\n"
