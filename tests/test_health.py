@@ -89,7 +89,7 @@ def test_health_report_and_format(tmp_db):
 
 def test_health_report_keeps_source_error_details(tmp_db):
     db.upsert_asset("SAMSUNG", "Samsung Electronics", "SHARE")
-    url = "https://news.samsung.com/global/feed"
+    url = "https://blocked.example.com/global/feed"
     db.add_source("SAMSUNG", url)
     source = next(s for s in db.list_source_defs() if s["url"] == url)
     error = ("HTTPStatusError: HTTP 403; "
@@ -160,6 +160,31 @@ def test_403_source_stays_enabled(tmp_db):
         health.check_source(blocked, "HTTPStatusError: Client error '403 Forbidden'")
     fresh = next(s for s in db.list_source_defs(enabled_only=False) if s["id"] == blocked["id"])
     assert fresh["enabled"] == 1
+
+
+def test_known_blocked_hosts_do_not_alert(tmp_db):
+    """403 от Samsung/Toyota ожидаем (есть резервное покрытие): без алертов,
+    уже открытый инцидент закрывается без «восстановлено»."""
+    health.drain()
+    db.upsert_asset("SAMSUNG", "Samsung Electronics", "SHARE")
+    db.upsert_asset("TOYOTA", "Toyota Motor", "SHARE")
+    urls = ["https://news.samsung.com/global/feed", "https://global.toyota/en/newsroom/"]
+    for asset, url in zip(("SAMSUNG", "TOYOTA"), urls):
+        db.add_source(asset, url)
+    sources = [s for s in db.list_source_defs() if s["url"] in urls]
+    health.report("source", f"source:{sources[0]['id']}", "старый алерт")
+    error = "HTTPStatusError: HTTP 403; TLS: chrome=HTTP 403"
+    for _ in range(health.SOURCE_FAIL_THRESHOLD * 5):
+        for src in sources:
+            assert health.check_source(src, error) is None
+    assert health.open_incidents() == []
+    assert health.check_source(sources[0], None) is None
+    assert health.drain() == ([], [])
+    # Прочие ошибки этих хостов (счётчик неудач уже набран) и 403 у ленты Google
+    # по site:news.samsung.com — как обычно.
+    assert health.check_source(sources[1], "HTTPStatusError: HTTP 503") is not None
+    assert not health._known_blocked(
+        "https://news.google.com/rss/search?q=site:news.samsung.com+when:7d")
 
 
 def test_url_fix_with_existing_duplicate(tmp_db, monkeypatch):

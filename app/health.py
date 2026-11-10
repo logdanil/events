@@ -18,6 +18,7 @@ import logging
 from datetime import datetime, timezone
 from html import escape
 from typing import Any
+from urllib.parse import urlparse
 
 from app import db
 from app.config import redact
@@ -120,11 +121,37 @@ def _aggregated_host(url: str) -> str | None:
     return None
 
 
+# Хосты, закрытые антибот-защитой для адресов дата-центров (403 на всех
+# TLS-отпечатках), для которых уже подключено резервное покрытие (app/db.py).
+# 403 от них ожидаем: продолжаем опрашивать, но администратора не оповещаем.
+KNOWN_BLOCKED_HOSTS = {
+    "news.samsung.com": "DART, индекс Google, Bing/Yahoo",
+    "global.toyota": "SEC EDGAR, TDnet, индекс Google, Bing/Yahoo",
+}
+
+
+def _known_blocked(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower()
+    return any(host == h or host.endswith("." + h) for h in KNOWN_BLOCKED_HOSTS)
+
+
+def _close_silently(component: str, key: str) -> None:
+    with db.connect() as conn:
+        conn.execute("UPDATE health_incidents SET resolved_at=? WHERE component=? AND key=? "
+                     "AND resolved_at IS NULL", (_now(), component, key))
+
+
 def check_source(source: dict, error: str | None) -> dict | None:
     """Источник: оповещаем после SOURCE_FAIL_THRESHOLD подряд неудач; при первом
     успехе после серии — сообщение о восстановлении."""
     key = f"source:{source['id']}"
     host = _aggregated_host(source["url"])
+    if error is not None and "403" in error and _known_blocked(source["url"]):
+        with db.connect() as conn:
+            conn.execute("UPDATE source_defs SET fail_streak=COALESCE(fail_streak,0)+1 WHERE id=?",
+                         (source["id"],))
+        _close_silently("source", key)
+        return None
     if error is None:
         with db.connect() as conn:
             conn.execute("UPDATE source_defs SET fail_streak=0 WHERE id=?", (source["id"],))
