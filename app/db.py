@@ -349,6 +349,17 @@ _DEFAULT_ASSET_SOURCES = [
      "parser": "rss", "refresh_interval": 120,
      "url": "https://feeds.finance.yahoo.com/rss/2.0/headline?s=TM&region=US&lang=en-US",
      "subscribers": ["TOYOTA"]},
+    # Moderna: собственной ленты нет (IR на виджете Issuer Direct за Cloudflare-челленджем,
+    # news.modernatx.com/feed — архив до 05.2025, индекс домена modernatx.com — страницы
+    # продуктов). Помимо SEC EDGAR и Google News — независимые агрегаторы.
+    {"name": "Yahoo Finance — MRNA (Moderna)", "type": "NEWS", "priority": 2, "parser": "rss",
+     "refresh_interval": 120,
+     "url": "https://feeds.finance.yahoo.com/rss/2.0/headline?s=MRNA&region=US&lang=en-US",
+     "subscribers": ["MRNA"]},
+    {"name": "Bing News — Moderna", "type": "NEWS", "priority": 2, "parser": "rss",
+     "refresh_interval": 120,
+     "url": "https://www.bing.com/news/search?q=%22Moderna%22&format=rss",
+     "subscribers": ["MRNA"]},
     {"name": "HKEX — News Releases", "type": "EXCHANGE", "priority": 1, "parser": "html",
      "refresh_interval": 60, "url": "https://www.hkex.com.hk/News/News-Release?sc_lang=en",
      "subscribers": ["TENCENT", "XIA", "HANG"]},

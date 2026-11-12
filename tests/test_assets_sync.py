@@ -309,3 +309,39 @@ def test_word_tickers_of_new_us_futures(tmp_db):
     res = matcher.match_publication({"title": "onsemi (Nasdaq: ON) announces share repurchase", "text": ""}, profiles)
     assert res[0].asset_code == "ON" and res[0].confidence == "high", "явный «Nasdaq: ON» — полный вес"
     assert matcher.match_assets({"title": "Unity Software Inc. announces merger", "text": ""}, profiles) == ["U"]
+
+
+def test_every_asset_has_at_least_two_sources_after_startup(tmp_db):
+    """Требование мониторинга: у каждого базового актива — не меньше двух включённых
+    источников после стартовой синхронизации (методология + SEC по CIK + Google News
+    + проверенные каналы из db.py). У новых акций США — ещё и официальная лента SEC."""
+    from app import health
+    db.seed_from_json(str(ROOT / "data" / "assets.json"), str(ROOT / "data" / "event_prompts.json"))
+    assets_sync.sync_from_md(MD)
+    assets_sync.ensure_backup_sources()
+    db.init_db()  # подписки из db.py на активы, появившиеся при синхронизации
+    health.rehabilitate_sources()
+    assets = {a["code"]: a for a in db.list_assets()}
+    thin = {c: len(a["sources"]) for c, a in assets.items() if len(a["sources"]) < 2}
+    assert not thin, f"меньше двух источников: {thin}"
+    for code in NEW_US_FUTURES:
+        kinds = [s["kind"] for s in assets[code]["sources"]]
+        assert "SEC" in kinds and len(kinds) >= 3, (code, kinds)
+    # Moderna без собственной ленты — независимые агрегаторы сверх SEC и Google News.
+    assert sum(k == "NEWS" for k in (s["kind"] for s in assets["MRNA"]["sources"])) >= 3
+    # onsemi: корень IR-сайта (меню продуктов) заменён на RSS пресс-релизов.
+    on_urls = [s["url"] for s in assets["ON"]["sources"]]
+    assert "https://investor.onsemi.com/rss/news-releases.xml" in on_urls
+    assert "https://investor.onsemi.com/" not in on_urls
+
+
+def test_onsemi_root_page_migrates_to_rss(tmp_db):
+    """Прод: в базе уже подписка на корень IR-сайта onsemi — при старте она переезжает
+    на RSS, корень выключается."""
+    from app import health
+    db.upsert_asset("ON", "Акции ON Semiconductor Corporation (ON)", "SHARE")
+    db.add_source("ON", "https://investor.onsemi.com/")
+    db.add_source("ON", "https://investor.onsemi.com/rss/news-releases.xml")
+    health.rehabilitate_sources()
+    urls = [s["url"] for s in db.get_asset("ON")["sources"]]
+    assert urls == ["https://investor.onsemi.com/rss/news-releases.xml"]

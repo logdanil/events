@@ -801,7 +801,7 @@
 - **Биржа первичного листинга:** NASDAQ
 - **Контракт МосБиржи:** MRNAF (торги с 10.11.2026)
 - **Источники мониторинга:**
-  <!-- Официальная лента Moderna недоступна без JS (виджет QuoteMedia); news.modernatx.com/feed — архив до 05.2025. Покрытие: SEC EDGAR по CIK + Google News. -->
+  <!-- Официальная лента Moderna недоступна: IR на виджете Issuer Direct/QuoteMedia за Cloudflare-челленджем; news.modernatx.com/feed — архив до 05.2025. Покрытие: SEC EDGAR по CIK + Google News + Yahoo Finance и Bing News (app/db.py). -->
 
 ## IREN
 - **Базовый актив:** Акции IREN Limited (IREN)
@@ -1027,4 +1027,4 @@
 - **Биржа первичного листинга:** NASDAQ
 - **Контракт МосБиржи:** ONF (торги с 17.11.2026)
 - **Источники мониторинга:**
-  - https://investor.onsemi.com/
+  - https://investor.onsemi.com/rss/news-releases.xml

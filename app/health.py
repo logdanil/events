@@ -263,6 +263,9 @@ URL_FIXES = {
     "https://ir.doordash.com/news/default.aspx": f"https://ir.doordash.com/{_Q4_RSS}",
     "https://investors.applovin.com/": f"https://investors.applovin.com/{_Q4_RSS}",
     "https://investors.carvana.com/news-releases": "https://investors.carvana.com/rss/news-releases.xml",
+    # Корень IR-сайта onsemi отдаёт меню продуктов («Gallium Nitride (GaN) FETs»), а не
+    # пресс-релизы, и регулярно не отвечает вовремя — переводим на RSS того же сайта.
+    "https://investor.onsemi.com/": "https://investor.onsemi.com/rss/news-releases.xml",
 }
 
 # Страницы, выводимые из мониторинга без замены (SQL LIKE): страницы акций nasdaq.com
