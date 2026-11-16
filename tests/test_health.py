@@ -512,3 +512,38 @@ def test_existing_db_migrates_to_new_us_sources(tmp_db):
     assert db.get_asset("COIN")["underlying_ticker"] == "COIN"
     assert assets_sync.sync_from_md(MD)["sources_added"] == 0
     assert health.rehabilitate_sources() == []
+
+
+def test_tavily_quota_exhausted_stops_queries_and_alerts_once(tmp_db, monkeypatch):
+    import asyncio
+    from app import health, search_monitor
+
+    class ForbiddenError(Exception):
+        pass
+
+    calls = []
+
+    class FakeClient:
+        def search(self, **kwargs):
+            calls.append(kwargs["query"])
+            raise ForbiddenError("This request exceeds your plan's set usage limit.")
+
+    monitor = search_monitor.SearchMonitor()
+    monitor.client = FakeClient()
+    assets = [{"code": f"A{i}", "name": f"Asset {i}", "aliases": []} for i in range(30)]
+    health.drain()
+    assert asyncio.run(monitor.fetch_all(assets)) == []
+    assert len(calls) <= 5, "после отказа по лимиту остальные активы не запрашиваются"
+    alerts, _ = health.drain()
+    assert [a["key"] for a in alerts] == ["tavily:quota"]
+    asyncio.run(monitor.fetch_all(assets))
+    assert health.drain() == ([], []), "повтор в пределах cooldown не оповещает"
+
+
+def test_blocked_www_newsroom_does_not_silence_ir_feed():
+    from app import health
+    assert health._known_blocked("https://www.snowflake.com/en/news/press-releases/")
+    assert health._known_blocked("https://www.ciena.com/about/newsroom/press-releases")
+    assert not health._known_blocked(
+        "https://investors.snowflake.com/rss/PressRelease.aspx?LanguageId=1")
+    assert not health._known_blocked("https://investor.ciena.com/rss/PressRelease.aspx")

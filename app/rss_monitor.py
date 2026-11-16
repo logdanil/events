@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import calendar
+import json
 import logging
 import re
 from datetime import datetime, timezone
@@ -22,6 +23,96 @@ TEXT_LIMIT = 1200
 # Заголовок SEC EDGAR: "8-K - COMPANY NAME (0001770561) (Filer)"
 SEC_TITLE_RE = re.compile(
     r"^(?P<form>[0-9A-Z][0-9A-Z\-/]{0,9})\s*-\s*(?P<filer>.+?)\s*\((?P<cik>\d{7,10})\)")
+
+
+# Персональная лента эмитента EDGAR (…browse-edgar?action=getcompany&CIK=…).
+_SEC_COMPANY_RE = re.compile(r"sec\.gov/cgi-bin/browse-edgar\?.*action=getcompany.*?[?&]CIK=0*(\d+)",
+                             re.IGNORECASE)
+SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik:0>10}.json"
+SEC_FILINGS_PER_COMPANY = 40   # столько же отдавала Atom-лента (count=40)
+
+# Названия форм — как в заголовках Atom-ленты EDGAR («8-K - Current report»).
+SEC_FORM_TITLES = {
+    "8-K": "Current report", "8-K/A": "Current report, amendment",
+    "6-K": "Report of foreign issuer [Rules 13a-16 and 15d-16]",
+    "10-K": "Annual report", "10-Q": "Quarterly report", "20-F": "Annual report of foreign issuer",
+    "25": "Notification of removal from listing",
+    "25-NSE": "Notification of removal from listing (by exchange)",
+    "15-12B": "Termination of registration", "15-12G": "Termination of registration",
+    "DEF 14A": "Definitive proxy statement", "PRE 14A": "Preliminary proxy statement",
+    "S-4": "Registration statement for business combinations",
+    "SC TO-T": "Tender offer statement by third party", "SC TO-I": "Issuer tender offer statement",
+    "SC 14D9": "Solicitation/recommendation statement",
+    "425": "Prospectuses and communications, business combinations",
+}
+# Пункты 8-K — в Atom они были в описании; по ним matcher и модель узнают делистинг, сплит и т. п.
+SEC_8K_ITEMS = {
+    "1.01": "Entry into a Material Definitive Agreement",
+    "1.03": "Bankruptcy or Receivership",
+    "2.01": "Completion of Acquisition or Disposition of Assets",
+    "3.01": "Notice of Delisting or Failure to Satisfy a Continued Listing Rule",
+    "3.02": "Unregistered Sales of Equity Securities",
+    "3.03": "Material Modification to Rights of Security Holders",
+    "5.01": "Changes in Control of Registrant",
+    "5.03": "Amendments to Articles of Incorporation or Bylaws; Change in Fiscal Year",
+    "5.07": "Submission of Matters to a Vote of Security Holders",
+    "7.01": "Regulation FD Disclosure", "8.01": "Other Events",
+    "9.01": "Financial Statements and Exhibits",
+}
+
+
+def sec_company_cik(url: str) -> str | None:
+    m = _SEC_COMPANY_RE.search(url)
+    return m.group(1) if m else None
+
+
+def parse_sec_submissions(content: bytes | str, source: dict) -> list[dict]:
+    """JSON data.sec.gov/submissions → публикации в том же виде, что из Atom-ленты
+    эмитента (та же ссылка на индекс подачи — дедупликация не ломается)."""
+    data = json.loads(content)
+    cik = str(int(data.get("cik") or sec_company_cik(source["url"]) or 0))
+    recent = (data.get("filings") or {}).get("recent") or {}
+    accessions = recent.get("accessionNumber") or []
+    publications = []
+    for i, accession in enumerate(accessions[:SEC_FILINGS_PER_COMPANY]):
+        def col(name: str) -> str:
+            values = recent.get(name) or []
+            return str(values[i] or "") if i < len(values) else ""
+        form = col("form").strip()
+        if not accession or not form:
+            continue
+        description = col("primaryDocDescription").strip()
+        if description.upper() in ("", form.upper(), f"FORM {form.upper()}"):
+            description = SEC_FORM_TITLES.get(form, description or form)
+        title = f"{form} - {description}"
+        items = [f"Item {it}: {SEC_8K_ITEMS.get(it, '')}".rstrip(": ")
+                 for it in col("items").split(",") if it.strip()]
+        text = f"Filed: {col('filingDate')} AccNo: {accession}"
+        if items:
+            text += " " + "; ".join(items)
+        published_dt = None
+        accepted = col("acceptanceDateTime") or col("filingDate")
+        try:
+            published_dt = datetime.fromisoformat(accepted.replace("Z", "+00:00"))
+            if published_dt.tzinfo is None:
+                published_dt = published_dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+        publications.append({
+            "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/"
+                   f"{accession.replace('-', '')}/{accession}-index.htm",
+            "title": title,
+            "text": text[:TEXT_LIMIT],
+            "published_at": published_dt.isoformat() if published_dt else accepted or None,
+            "published_dt": published_dt,
+            "source": source["name"],
+            "source_id": source["id"],
+            "source_type": source["type"],
+            "subscribers": source.get("subscribers", []),
+            "sec_cik": cik,
+            "form_type": form,
+        })
+    return publications
 
 
 def _entry_published(entry) -> tuple[str | None, datetime | None]:
@@ -81,11 +172,28 @@ def parse_feed(content: bytes | str, source: dict) -> list[dict]:
     return publications
 
 
+async def _fetch_sec_company(client: httpx.AsyncClient, source: dict, cik: str) -> list[dict]:
+    """Лента эмитента SEC: сначала JSON data.sec.gov (отвечает за доли секунды),
+    при сбое — исходная Atom-лента browse-edgar (с ноября 2026 отвечает 20–30 с)."""
+    try:
+        content = await fetcher.fetch(client, {**source, "url": SEC_SUBMISSIONS_URL.format(cik=cik)})
+        return await fetcher.parse_in_thread(parse_sec_submissions, content, source)
+    except Exception as exc:
+        log.info("SEC JSON для CIK %s недоступен (%s: %s) — беру Atom-ленту",
+                 cik, type(exc).__name__, exc)
+    content = await fetcher.fetch(client, source)
+    return await fetcher.parse_in_thread(parse_feed, content, source)
+
+
 async def fetch_source(client: httpx.AsyncClient, source: dict) -> list[dict]:
     try:
-        content = await fetcher.fetch(client, source)
-        publications = await fetcher.parse_in_thread(parse_feed, content, source)
-        del content
+        cik = sec_company_cik(source["url"])
+        if cik:
+            publications = await _fetch_sec_company(client, source, cik)
+        else:
+            content = await fetcher.fetch(client, source)
+            publications = await fetcher.parse_in_thread(parse_feed, content, source)
+            del content
         db.mark_source_checked(source["id"])
         alert = health.check_source(source, None)
         if alert:

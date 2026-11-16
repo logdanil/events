@@ -49,6 +49,13 @@ MAX_CONCURRENT_PARSES = 4
 # укладываются в сотни килобайт, а многомегабайтные ответы (полные архивы,
 # бесконечные ленты) только раздувают память парсера.
 MAX_RESPONSE_BYTES = 3 * 1024 * 1024
+# JSON-карточка эмитента SEC (data.sec.gov/submissions) у крупных компаний
+# (JPMorgan) весит 4–5 МБ, а обрезанный JSON не разобрать.
+MAX_SEC_JSON_BYTES = 8 * 1024 * 1024
+# Атом-ленты EDGAR (/cgi-bin/browse-edgar) с ноября 2026 отвечают по 20–30 с —
+# при 25 с все SEC-источники падали по таймауту. Остальным хватает 25 с.
+SEC_CGI_TIMEOUT = 60
+DEFAULT_TIMEOUT = 25
 _semaphore: asyncio.Semaphore | None = None
 _sec_semaphore: asyncio.Semaphore | None = None
 _google_semaphore: asyncio.Semaphore | None = None
@@ -150,18 +157,23 @@ async def fetch(client: httpx.AsyncClient, source: dict) -> bytes:
 async def _read_limited(client: httpx.AsyncClient, source: dict) -> bytes:
     """GET с потоковым чтением: тело обрезается по MAX_RESPONSE_BYTES, не попадая
     в память целиком."""
-    async with client.stream("GET", source["url"], headers=request_headers(source),
-                             follow_redirects=True, timeout=25) as response:
+    url = source["url"]
+    timeout = SEC_CGI_TIMEOUT if "sec.gov/cgi-bin/" in url else DEFAULT_TIMEOUT
+    limit = MAX_SEC_JSON_BYTES if "data.sec.gov/" in url else MAX_RESPONSE_BYTES
+    async with client.stream("GET", url, headers=request_headers(source),
+                             follow_redirects=True, timeout=timeout) as response:
         response.raise_for_status()
         chunks, size = [], 0
         async for chunk in response.aiter_bytes():
             chunks.append(chunk)
             size += len(chunk)
-            if size >= MAX_RESPONSE_BYTES:
+            if size >= limit:
+                if limit != MAX_RESPONSE_BYTES:
+                    raise ValueError(f"ответ больше {limit // 1024} КБ — JSON был бы обрезан")
                 log.info("Источник %s больше %d КБ — читаю только начало",
-                         source.get("name"), MAX_RESPONSE_BYTES // 1024)
+                         source.get("name"), limit // 1024)
                 break
-        return b"".join(chunks)[:MAX_RESPONSE_BYTES]
+        return b"".join(chunks)[:limit]
 
 
 async def _fetch_inner(client: httpx.AsyncClient, source: dict) -> bytes:

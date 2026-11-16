@@ -127,6 +127,10 @@ def _aggregated_host(url: str) -> str | None:
 KNOWN_BLOCKED_HOSTS = {
     "news.samsung.com": "DART, индекс Google, Bing/Yahoo",
     "global.toyota": "SEC EDGAR, TDnet, индекс Google, Bing/Yahoo",
+    # Только www-страницы пресс-релизов; IR RSS-ленты investor(s).* работают и
+    # не заглушаются (совпадение по хосту точное, поддомены www не затрагивает).
+    "www.snowflake.com": "IR RSS investors.snowflake.com, SEC EDGAR",
+    "www.ciena.com": "IR RSS investor.ciena.com, SEC EDGAR",
 }
 
 

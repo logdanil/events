@@ -345,3 +345,56 @@ def test_onsemi_root_page_migrates_to_rss(tmp_db):
     health.rehabilitate_sources()
     urls = [s["url"] for s in db.get_asset("ON")["sources"]]
     assert urls == ["https://investor.onsemi.com/rss/news-releases.xml"]
+
+
+def test_sec_company_feed_uses_submissions_json():
+    import json
+    from app import rss_monitor
+    source = {"id": 9, "name": "sec.gov", "type": "SEC", "subscribers": ["TSM"],
+              "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001046179"
+                     "&type=&dateb=&owner=include&count=40&output=atom"}
+    assert rss_monitor.sec_company_cik(source["url"]) == "1046179"
+    assert rss_monitor.sec_company_cik(
+        "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&output=atom") is None
+    payload = {"cik": "1046179", "filings": {"recent": {
+        "accessionNumber": ["0001046179-26-000801", "0001140361-26-000002"],
+        "acceptanceDateTime": ["2026-11-13T11:02:30.000Z", "2026-11-12T20:00:00.000Z"],
+        "filingDate": ["2026-11-13", "2026-11-12"],
+        "form": ["6-K", "8-K"],
+        "primaryDocDescription": ["6-K", ""],
+        "items": ["", "3.01,9.01"]}}}
+    pubs = rss_monitor.parse_sec_submissions(json.dumps(payload).encode(), source)
+    assert len(pubs) == 2
+    first, second = pubs
+    # Та же ссылка на индекс подачи, что в Atom-ленте, — дедупликация не ломается.
+    assert first["url"] == ("https://www.sec.gov/Archives/edgar/data/1046179/"
+                            "000104617926000801/0001046179-26-000801-index.htm")
+    assert first["title"] == "6-K - Report of foreign issuer [Rules 13a-16 and 15d-16]"
+    assert first["sec_cik"] == "1046179" and first["form_type"] == "6-K"
+    assert first["published_dt"].isoformat() == "2026-11-13T11:02:30+00:00"
+    assert second["title"] == "8-K - Current report"
+    assert "Notice of Delisting" in second["text"]
+
+
+def test_sec_company_feed_falls_back_to_atom(monkeypatch):
+    import asyncio
+    from app import fetcher, rss_monitor
+    atom = b"""<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
+    <entry><title>8-K  - Current report</title>
+    <link href="https://www.sec.gov/Archives/edgar/data/1046179/000110465926000001/x-index.htm"/>
+    <updated>2026-11-13T10:00:00-04:00</updated></entry></feed>"""
+    requested = []
+
+    async def fake_fetch(client, source):
+        requested.append(source["url"])
+        if "data.sec.gov" in source["url"]:
+            raise TimeoutError("json down")
+        return atom
+
+    monkeypatch.setattr(fetcher, "fetch", fake_fetch)
+    source = {"id": 9, "name": "sec.gov", "type": "SEC", "subscribers": ["TSM"],
+              "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001046179&output=atom"}
+    pubs = asyncio.run(rss_monitor._fetch_sec_company(None, source, "1046179"))
+    assert requested[0] == "https://data.sec.gov/submissions/CIK0001046179.json"
+    assert requested[1] == source["url"]
+    assert pubs[0]["form_type"] == "8-K" and pubs[0]["sec_cik"] == "1046179"
