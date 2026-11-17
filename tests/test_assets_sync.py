@@ -11,7 +11,7 @@ MD = ROOT / "underlyings_sources.md"
 def test_parse_real_file():
     assets = assets_sync.parse_underlyings_md(MD)
     codes = [a["code"] for a in assets]
-    assert len(assets) == 104  # 50 + 6 криптоиндексов + 21 акция США + 27 акций США (фьючерсы с 10–17.11.2026)
+    assert len(assets) == 105  # 50 + 6 криптоиндексов + 21 акция США + 27 акций США (фьючерсы с 10–17.11.2026) + Anthropic
     assert "SPYF" in codes and "IBIT" in codes and "TSM" in codes and "BR, BRM" in codes
     spyf = next(a for a in assets if a["code"] == "SPYF")
     assert spyf["isin"] == "US78462F1030"
@@ -274,6 +274,15 @@ def test_new_us_futures_in_methodology():
     assert all(parsed[c]["sources"] for c in NEW_US_FUTURES if c != "MRNA")
 
 
+def test_anthropic_in_methodology():
+    """Anthropic выходит на Nasdaq (IPO, торги с 19.11.2026): тикер ANT, CIK из S-1."""
+    ant = next(a for a in assets_sync.parse_underlyings_md(MD) if a["code"] == "ANT")
+    assert ant["ticker"] == "ANT" and ant["cik"] == "2130357" and ant["issuer"] == "Anthropic, PBC"
+    assert ant["exchange"] == "NASDAQ" and "Anthropic" in ant["aliases"]
+    assert assets_sync.infer_instrument_type(ant["name"]) == "SHARE"
+    assert ant["sources"] == ["https://www.anthropic.com/news"]
+
+
 def test_ticker_field_sets_underlying_ticker(tmp_db, tmp_path):
     """Тикер, равный коду актива, как алиас теряется — поле «Тикер» задаёт его напрямую."""
     md = tmp_path / "u.md"
@@ -292,7 +301,8 @@ def test_word_tickers_of_new_us_futures(tmp_db):
     from app import matcher
     for code, name, alias in [("NOW", "ServiceNow, Inc.", "ServiceNow"), ("ON", "ON Semiconductor Corporation", "onsemi"),
                               ("U", "Unity Software Inc.", "Unity Software"), ("SNOW", "Snowflake Inc.", "Snowflake"),
-                              ("SHOP", "Shopify Inc.", "Shopify"), ("ARM", "Arm Holdings plc", "Arm Holdings")]:
+                              ("SHOP", "Shopify Inc.", "Shopify"), ("ARM", "Arm Holdings plc", "Arm Holdings"),
+                              ("ANT", "Anthropic, PBC", "Anthropic")]:
         db.upsert_asset(code, f"Акции {name} ({code})", "SHARE", aliases=[alias])
         db.set_asset_field(code, "issuer_name", name)
         db.set_asset_field(code, "underlying_ticker", code)
@@ -302,13 +312,16 @@ def test_word_tickers_of_new_us_futures(tmp_db):
                   "Shop closures: retailer announces bankruptcy",
                   "Company's arm announces spin-off",
                   "U.S. announces new dividend tax rules",
-                  "Investors should be on alert as the merger closes"]:
+                  "Investors should be on alert as the merger closes",
+                  "Ant colony study: shares of food are split between workers"]:
         assert matcher.match_assets({"title": title, "text": ""}, profiles) == [], title
     assert matcher.match_assets({"title": "ServiceNow (NYSE: NOW) declares special dividend", "text": ""},
                                 profiles) == ["NOW"]
     res = matcher.match_publication({"title": "onsemi (Nasdaq: ON) announces share repurchase", "text": ""}, profiles)
     assert res[0].asset_code == "ON" and res[0].confidence == "high", "явный «Nasdaq: ON» — полный вес"
     assert matcher.match_assets({"title": "Unity Software Inc. announces merger", "text": ""}, profiles) == ["U"]
+    assert matcher.match_assets({"title": "Anthropic (Nasdaq: ANT) announces pricing of initial public offering",
+                                 "text": ""}, profiles) == ["ANT"]
 
 
 def test_every_asset_has_at_least_two_sources_after_startup(tmp_db):

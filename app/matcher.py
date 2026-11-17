@@ -114,7 +114,7 @@ TICKER_CONTEXT_WORDS = {"etf", "fund", "trust", "shares", "ticker", "symbol", "n
 # Тикеры, совпадающие с обычными словами: засчитываются только в скобках «(COIN)»,
 # после «NASDAQ:/NYSE:/ticker/symbol» либо на своей странице — общий контекст не спасает.
 STRICT_TICKERS = {"coin", "app", "dash", "lite", "hood", "uber", "cmg", "lulu", "spcx",
-                  "on", "u", "be", "now", "arm", "team", "snow", "spot", "shop"}
+                  "on", "u", "be", "now", "arm", "team", "snow", "spot", "shop", "ant"}
 _TICKER_PREFIX_RE = r"(?:nasdaq|nyse|ticker|symbol|тикер)\s*:?\s*"
 
 # Рутинные формы SEC, которые корпоративным событием не бывают (сделки инсайдеров,

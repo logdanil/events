@@ -1028,3 +1028,14 @@
 - **Контракт МосБиржи:** ONF (торги с 17.11.2026)
 - **Источники мониторинга:**
   - https://investor.onsemi.com/rss/news-releases.xml
+
+## ANT
+- **Базовый актив:** Акции Anthropic, PBC (ANT)
+- **Эмитент:** Anthropic, PBC
+- **Тикер:** ANT
+- **Алиасы:** Anthropic
+- **CIK:** `2130357`
+- **Биржа первичного листинга:** NASDAQ
+- **IPO:** Nasdaq Global Select, начало торгов 19.11.2026 (S-1 от 26.10.2026, файл 333-299633)
+- **Источники мониторинга:**
+  - https://www.anthropic.com/news
