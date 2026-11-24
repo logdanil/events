@@ -8,11 +8,16 @@ SEC всегда ходит через httpx с контактным User-Agent 
 from __future__ import annotations
 
 import asyncio
+import functools
 import html
 import logging
 import random
 import re
+import ssl
+from pathlib import Path
+from urllib.parse import urlsplit
 
+import certifi
 import httpx
 
 from app.config import settings
@@ -79,6 +84,27 @@ async def parse_in_thread(func, *args):
         _parse_semaphore = asyncio.Semaphore(MAX_CONCURRENT_PARSES)
     async with _parse_semaphore:
         return await asyncio.to_thread(func, *args)
+# С ноября 2026 МосБиржа отдаёт сертификат от «Russian Trusted Root CA» Минцифры,
+# которого нет в certifi (CERTIFICATE_VERIFY_FAILED), а HTTP перенаправляет на HTTPS.
+# Корень (с gu-st.ru, SHA-256 D2:6D:2D:02:…:CA:8E:CF:31) добавляем в доверенные
+# только для этих доменов — остальные сайты проверяются по обычному certifi.
+RU_TRUSTED_ROOT = Path(__file__).with_name("certs") / "russian_trusted_root_ca.pem"
+RU_CA_DOMAINS = ("moex.com",)
+
+
+def needs_ru_ca(url: str) -> bool:
+    host = (urlsplit(url).hostname or "").lower()
+    return any(host == d or host.endswith("." + d) for d in RU_CA_DOMAINS)
+
+
+@functools.lru_cache(maxsize=1)
+def ru_ssl_context() -> ssl.SSLContext:
+    """certifi + корень Минцифры: редирект на сторонний домен тоже проверится."""
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    ctx.load_verify_locations(cafile=str(RU_TRUSTED_ROOT))
+    return ctx
+
+
 # Разные антибот-системы режут разные браузеры: LME пропускает Safari/Firefox, но не Chrome.
 IMPERSONATE_CHAIN = ("chrome", "safari", "firefox135")
 
@@ -104,8 +130,9 @@ def _fetch_impersonated(url: str) -> bytes:
     for browser in IMPERSONATE_CHAIN:
         response = None
         try:
+            kwargs = {"verify": str(RU_TRUSTED_ROOT)} if needs_ru_ca(url) else {}
             response = curl_requests.get(url, impersonate=browser, timeout=30,
-                                         allow_redirects=True, stream=True)
+                                         allow_redirects=True, stream=True, **kwargs)
             if response.status_code < 400:
                 chunks, size = [], 0
                 for chunk in response.iter_content():
@@ -160,6 +187,16 @@ async def _read_limited(client: httpx.AsyncClient, source: dict) -> bytes:
     url = source["url"]
     timeout = SEC_CGI_TIMEOUT if "sec.gov/cgi-bin/" in url else DEFAULT_TIMEOUT
     limit = MAX_SEC_JSON_BYTES if "data.sec.gov/" in url else MAX_RESPONSE_BYTES
+    if needs_ru_ca(url):
+        # Общий клиент проверяет только по certifi; источников МосБиржи единицы,
+        # поэтому отдельный клиент на запрос дешевле, чем второй долгоживущий пул.
+        async with httpx.AsyncClient(verify=ru_ssl_context()) as ru_client:
+            return await _stream_limited(ru_client, source, url, timeout, limit)
+    return await _stream_limited(client, source, url, timeout, limit)
+
+
+async def _stream_limited(client: httpx.AsyncClient, source: dict, url: str,
+                          timeout: float, limit: int) -> bytes:
     async with client.stream("GET", url, headers=request_headers(source),
                              follow_redirects=True, timeout=timeout) as response:
         response.raise_for_status()

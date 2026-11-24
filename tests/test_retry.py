@@ -195,3 +195,28 @@ def test_impersonated_does_not_hide_unexpected_errors(monkeypatch):
     monkeypatch.setattr(requests, "get", Mock(side_effect=ValueError("invalid configuration")))
     with pytest.raises(ValueError, match="invalid configuration"):
         fetcher._fetch_impersonated("https://example.com/feed")
+
+
+def test_ru_ca_only_for_moex_domains():
+    from app import fetcher
+
+    assert fetcher.needs_ru_ca("https://www.moex.com/ru/derivatives/")
+    assert fetcher.needs_ru_ca("https://moex.com/export/news.aspx?cat=101")
+    assert not fetcher.needs_ru_ca("https://notmoex.com/")
+    assert not fetcher.needs_ru_ca("https://www.sec.gov/")
+    assert fetcher.RU_TRUSTED_ROOT.is_file()
+    fetcher.ru_ssl_context()  # корень читается и грузится в контекст
+
+
+def test_impersonated_passes_ru_ca_for_moex(monkeypatch):
+    from unittest.mock import Mock
+
+    from curl_cffi import requests
+    from app import fetcher
+
+    response = Mock(status_code=200)
+    response.iter_content.return_value = [b"ok"]
+    get = Mock(return_value=response)
+    monkeypatch.setattr(requests, "get", get)
+    assert fetcher._fetch_impersonated("https://www.moex.com/ru/derivatives/") == b"ok"
+    assert get.call_args.kwargs["verify"] == str(fetcher.RU_TRUSTED_ROOT)
